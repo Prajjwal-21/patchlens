@@ -142,13 +142,50 @@ unrun metrics display NOT RUN.
 Acceptance: signed webhook verification, PR events, idempotent jobs, comments at
 valid diff positions, least privilege, documented local demo path.
 
-- [ ] Webhook receiver with HMAC verification and delivery dedupe
-- [ ] GitHub App JWT/installation tokens
-- [ ] PR opened/reopened/synchronize handlers -> fetch diff -> review job
-- [ ] Comment publication: only verified/needs-verification findings, valid anchors,
-      bounded count, check-run summary
-- [~] Local demo workflow without GitHub App configuration (`make demo-*` works; the
-      GitHub-specific path remains)
+- [x] Webhook receiver with HMAC verification and delivery dedupe
+      (`POST /api/v1/github/webhooks`, raw-body signature, `X-GitHub-Delivery`
+      unique index, duplicate/no-op and payload-hash-conflict handling)
+- [x] GitHub App JWT/installation tokens (RS256 nine-minute JWT, in-memory token
+      cache refreshed before expiry, least-privilege permission set documented)
+- [x] PR opened/reopened/synchronize handlers -> fetch diff -> review job
+      (registered checkout + index required; `github-review:<repo>:<head_sha>` job
+      dedupe; closed/draft/other actions audited as ignored)
+- [x] Comment publication: only verified/needs-verification findings, valid anchors,
+      bounded count, check-run summary (one `COMMENT` review, neutral check run,
+      severity/anchor/limit filters, per-finding `publish_state`, redacted text, no
+      raw excerpts)
+- [x] Local demo workflow without GitHub App configuration (`make demo-*` works; a
+      signed webhook ping can be sent locally as documented in `docs/GITHUB.md`)
+
+### Verification log (2026-10-20, milestone 5)
+- `pytest tests -q` -> **389 passed**
+- `pytest tests -q --cov=patchlens` -> **88%** statements (7550 statements, 724
+  missed; 1888 branches, 316 partial)
+- `ruff format --check patchlens tests` -> 110 files already formatted
+- `ruff check patchlens tests` -> All checks passed
+- `mypy patchlens` -> Success: no issues found in 83 source files
+- Fresh SQLite: `alembic upgrade head` -> `alembic check` ("No new upgrade
+  operations detected") -> `downgrade base` -> `upgrade head`: all succeed
+  (migration `9ed83ea31c6a` adds review-level publication state)
+- `make init-db && make demo-repo && make demo-review` -> 5 files / 21 symbols /
+  5 tests / 21 embeddings; 12 findings (4 verified, 8 need manual verification),
+  provider `mock`; publication recorded as skipped because no GitHub publisher was
+  configured
+- End-to-end integration test: signed webhook -> queued job -> real worker -> real
+  review pipeline -> mocked GitHub diff fetch -> one `COMMENT` review + neutral
+  check run; findings persisted as published. The same suite covers wrong/missing
+  signatures, malformed JSON, oversized bodies, duplicate deliveries, duplicate
+  head-SHA jobs, draft/closed actions, unregistered repositories, installation
+  add/remove/delete, auth on read endpoints and API failure marking findings failed.
+- Bugs found and fixed by this milestone's tests: PyJWT rejects a non-string `iss`
+  claim (GitHub accepts the string form); the pipeline did not attach the queue job id
+  to the review it created; publication exception detail shadowed the skip reason;
+  tests revealed the handler needed a real installation-token exchange in the mocked
+  end-to-end path.
+- **Not verified:** no live GitHub App installation, no request to github.com, no
+  GitHub Enterprise, no remote cloning. Publishing is at-least-once across a crash
+  between GitHub accepting a review and the DB commit; documented in
+  `docs/GITHUB.md`.
 
 ## Milestone 6 - Test intelligence + isolation
 Acceptance: related tests identified; candidate regression tests generated; execution
@@ -191,6 +228,10 @@ resume bullets; every claim traceable to a command that was run.
 - Docker daemon was not running during development: Postgres+pgvector and Redis
   integration, plus the Docker test-execution tier, are implemented but have not
   been executed here. `docker compose up` and the sandbox tiers remain unverified.
+- No live GitHub App installation or request to github.com: webhook handling, App
+  auth, diff fetch, publication and the neutral check run are tested against a
+  generated RSA key and an `httpx.MockTransport`. Remote cloning is not implemented,
+  so webhook reviews require a registered local checkout and index.
 - No paid LLM credentials were used; default runs use the deterministic mock
   provider and are labelled as such everywhere.
 - The pgvector column is currently unconstrained (`vector` without a dimension), so

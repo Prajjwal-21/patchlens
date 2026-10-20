@@ -18,12 +18,15 @@ from patchlens.api.schemas import (
     EvalRunOut,
     FindingFeedbackOut,
     FindingOut,
+    GitHubInstallationOut,
     JobOut,
     RepositoryOut,
     RepositoryVersionOut,
     ReviewOut,
+    WebhookDeliveryOut,
 )
 from patchlens.db.models.evaluation import EvalCase, EvalCaseResult, EvalDataset, EvalRun
+from patchlens.db.models.github import GitHubInstallation, WebhookDelivery
 from patchlens.db.models.job import Job
 from patchlens.db.models.repository import Repository, RepositoryVersion
 from patchlens.db.models.review import Finding, FindingFeedback, Review
@@ -142,6 +145,10 @@ def review_out(
         usage=review.usage or {},
         job_id=review.job_id,
         metadata=review_metadata_summary(review.metadata_json) if include_metadata else None,
+        publish_state=review.publish_state,
+        publish_detail=review.publish_detail,
+        published_comment_url=review.published_comment_url,
+        published_at=review.published_at,
     )
 
 
@@ -314,6 +321,41 @@ def eval_dataset_detail_out(
     return EvalDatasetDetailOut(**summary.model_dump(), cases=[eval_case_out(case) for case in cases])
 
 
+def github_installation_out(row: GitHubInstallation) -> GitHubInstallationOut:
+    return GitHubInstallationOut(
+        id=row.id,
+        installation_id=row.installation_id,
+        account_login=row.account_login,
+        account_type=row.account_type,
+        repository_selection=row.repository_selection,
+        repository_count=row.repository_count,
+        suspended=row.suspended,
+        permissions=row.permissions or {},
+        events=row.events or [],
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def webhook_delivery_out(row: WebhookDelivery) -> WebhookDeliveryOut:
+    return WebhookDeliveryOut(
+        id=row.id,
+        delivery_id=row.delivery_id,
+        event=row.event,
+        action=row.action,
+        repository_full_name=row.repository_full_name,
+        sender=row.sender,
+        signature_verified=row.signature_verified,
+        status=row.status,
+        payload_bytes=row.payload_bytes,
+        payload_sha256=row.payload_sha256,
+        job_id=row.job_id,
+        error=row.error,
+        received_at=row.received_at,
+        processed_at=row.processed_at,
+    )
+
+
 __all__ = [
     "METADATA_KEEP",
     "eval_case_out",
@@ -324,9 +366,11 @@ __all__ = [
     "eval_run_out",
     "feedback_out",
     "finding_out",
+    "github_installation_out",
     "job_out",
     "repository_out",
     "review_metadata_summary",
     "review_out",
     "version_out",
+    "webhook_delivery_out",
 ]

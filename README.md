@@ -21,7 +21,7 @@ mock provider that is labelled as a mock in the API, the CLI and the UI model.
 | Milestone 2 — Python AST ingestion, versions, embeddings, test mapping | done |
 | Milestone 3 — diff → retrieval → checks → LLM → validation → API/CLI | done |
 | Milestone 4 — retrieval evaluation (metrics, datasets, runner) | done — first runs recorded |
-| Milestone 5 — GitHub App webhooks and comment publication | not started |
+| Milestone 5 — GitHub App webhooks and comment publication | done — tested against a mocked GitHub API |
 | Milestone 6 — test generation and sandboxed execution | not started |
 | Milestone 7 — reliability/security hardening pass | not started |
 | Milestone 8 — web frontend, docs, screenshots, demo polish | not started |
@@ -75,7 +75,7 @@ flowchart LR
     E --> G[validation boundary<br/>path, line, evidence, dedupe]
     F --> G
     G --> H[(reviews / findings / feedback)]
-    G --> I[publisher hook<br/>GitHub comments in milestone 5]
+    G --> I[publisher<br/>GitHub comments + neutral check]
 ```
 
 Two properties are enforced in code rather than documented as intentions:
@@ -148,6 +148,32 @@ dataset hashes, run ids, per-case analysis and reproduction commands are in
 [docs/EVALUATION.md](docs/EVALUATION.md). Undefined metrics render as `UNKNOWN`;
 a dataset without a run is `NOT RUN`.
 
+## GitHub integration
+
+GitHub App webhooks are verified against the raw body (`X-Hub-Signature-256`) and
+deduplicated by `X-GitHub-Delivery`. `pull_request` `opened`/`reopened`/`synchronize`
+events resolve a registered local checkout, queue one review per head SHA, fetch the
+diff with an installation token, run the normal review pipeline, and publish:
+
+- one pull-request **review with `event: COMMENT`** — never an approval or a change
+  request;
+- inline comments only for `verified` and `needs_manual_verification` findings, only
+  configured severities, verified added-line anchors and safe paths, capped by
+  `GITHUB_MAX_COMMENTS_PER_REVIEW`;
+- a **neutral** check run whose annotations mirror the published findings.
+
+Every finding records `publish_state` (`published` / `skipped` / `failed`) with a
+reason, and comment text excludes raw code excerpts and passes secret redaction.
+The App asks for metadata read, pull-requests write and checks write — no contents,
+code write, workflows, secrets or administration. Setup, permissions, failure
+semantics and the untested paths are in [docs/GITHUB.md](docs/GITHUB.md).
+
+The local demo does not need a GitHub App: `make demo-review` exercises the same
+pipeline with publication recorded as `skipped`. No live GitHub App installation has
+been exercised here; the integration tests drive the real webhook route, queue,
+worker and publisher against an `httpx.MockTransport` GitHub API and a generated RSA
+key.
+
 ## Findings and feedback
 
 Each finding carries: category, severity, rule id, detector (`static`, `static_ast`,
@@ -164,9 +190,10 @@ execution was attempted").
 ## API
 
 All routes are under `/api/v1` except the probes. `Authorization: Bearer <token>` is
-required when `API_AUTH_TOKEN` is set; `/healthz`, `/readyz` and `/api/v1/meta` stay
-public so an orchestrator can probe the process and a UI can discover that a token
-is required.
+required when `API_AUTH_TOKEN` is set; `/healthz`, `/readyz`, `/api/v1/meta` and the
+HMAC-authenticated `POST /api/v1/github/webhooks` remain public so an orchestrator
+can probe the process, a UI can discover that a token is required, and GitHub can
+deliver events without a bearer token.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
@@ -188,6 +215,9 @@ is required.
 | GET | `/api/v1/evaluation/runs/{id}` | aggregate and per-case results |
 | GET | `/api/v1/jobs`, `/api/v1/jobs/{id}` | durable job state and events |
 | POST | `/api/v1/jobs/{id}/cancel` | cancel a queued job |
+| POST | `/api/v1/github/webhooks` | GitHub webhook receiver (HMAC signature required) |
+| GET | `/api/v1/github/installations` | installations observed from webhook events |
+| GET | `/api/v1/github/deliveries` | webhook audit rows, optionally filtered by `status` |
 | GET | `/api/v1/settings` | effective configuration, secrets masked |
 
 Errors use one shape: `{"error": {"code", "message", "details"}}`, with codes such
@@ -212,6 +242,12 @@ the example file is generated from the settings model (`make env-example`, or
 | `EMBEDDING_PROVIDER` | `hashing` | `hashing` (non-neural) or `openai_compatible` |
 | `EMBEDDING_DIM`, `EMBEDDING_MODEL` | `512`, `hashing-ngram-v2` | changing these requires re-indexing |
 | `RETRIEVAL_STRATEGY` | `hybrid` | one of the five strategies above |
+| `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET` | unset | GitHub App credentials; without all three the webhook returns 502 |
+| `GITHUB_PUBLISH_ENABLED` | `false` | comments/check run are created only when explicitly enabled |
+| `GITHUB_COMMENT_SEVERITIES` | `critical,high` | severity filter for inline comments |
+| `GITHUB_MAX_COMMENTS_PER_REVIEW` | `10` | bounded comment count (1–50) |
+| `GITHUB_REQUIRE_VERIFIED_ANCHORS` | `true` | publish only added-line-verified anchors |
+| `GITHUB_API_BASE_URL` | `https://api.github.com` | configurable for GitHub Enterprise; only the mock base URL is tested |
 
 The provider split is deliberate: the app runs, indexes and reviews without paid
 credentials, and `is_mock_provider` is stored on each review so no surface can
@@ -228,8 +264,8 @@ make test-cov    # pytest with a coverage report
 make ci          # lint + typecheck + test
 ```
 
-Current measured state on this machine (Python 3.11, SQLite): **354 tests pass**,
-**88% statement coverage** (6855 statements, 646 missed), `ruff` and
+Current measured state on this machine (Python 3.11, SQLite): **389 tests pass**,
+**88% statement coverage** (7550 statements, 724 missed), `ruff` and
 `mypy --strict` clean. Run the commands yourself; the numbers in this file are
 updated only after the commands have been run.
 
@@ -248,20 +284,28 @@ backend/
       review/       diff parser, symbol mapping, checks, prompting, validation, pipeline
       llm/          provider interface, mock, OpenAI-compatible client
       embedding/    hashing and OpenAI-compatible embedding providers
-      github/       (milestone 5)
+      github/       GitHub client, webhook ingestion, publisher
     cli.py          operational CLI
   migrations/       Alembic revisions
   tests/            unit, integration, security
 examples/demo-repo/ a small fixture service and a real diff used by `make demo-*`
-docs/               architecture, security, evaluation
+docs/               architecture, security, evaluation, GitHub integration
 ```
 
 ## Honest limitations
 
-- **No live GitHub run yet.** Webhook verification, GitHub App auth and comment
-  publication are milestone 5 and are not implemented. Review publication is a
-  `Publisher` protocol hook; with no publisher configured the review records
-  `publish_state=skipped` and says so.
+- **No live GitHub run.** The webhook receiver, App JWT/installation-token flow,
+  diff fetch, comment publication and neutral check run are implemented and covered
+  by integration tests against a mocked GitHub API (`httpx.MockTransport`) with a
+  generated RSA key. No real GitHub App installation has delivered an event here, and
+  GitHub Enterprise is untested. Publication is off unless
+  `GITHUB_PUBLISH_ENABLED=true`; without a publisher the review records
+  `publish_state=skipped` with the reason. A crash after GitHub accepts a review but
+  before the DB commit can duplicate the review (GitHub has no idempotency key);
+  this is documented in [docs/GITHUB.md](docs/GITHUB.md).
+- **No remote cloning.** Webhook review requires a registered local checkout and a
+  successful index; unregistered/uncheckout repositories are recorded as failed
+  deliveries rather than cloned.
 - **No PostgreSQL/pgvector execution.** Docker was unavailable during development.
   The portable SQLite path is what the tests exercise. The pgvector column type is
   unconstrained until the planned fixed-dimension migration.

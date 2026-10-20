@@ -151,7 +151,7 @@ duplicate checks, prompt-injection rejection) before it is stored or published.
 | repositories | `repositories`, `repository_versions`, `code_symbols`, `symbol_edges`, `code_embeddings` |
 | review | `pull_requests`, `reviews`, `findings`, `finding_feedback` |
 | jobs | `jobs`, `job_events` |
-| GitHub (planned wiring) | `github_installations`, `webhook_deliveries` |
+| GitHub | `github_installations`, `webhook_deliveries` |
 | testing (planned wiring) | `test_candidates` |
 | evaluation | `eval_datasets`, `eval_cases`, `eval_runs`, `eval_case_results` |
 
@@ -175,11 +175,31 @@ worker does not strand work. Timeouts are enforced per job (`SIGALRM` where
 available). Concurrency is limited to one job on SQLite (single-writer) and can be
 raised on PostgreSQL.
 
+## GitHub flow
+
+```
+GitHub App webhook (HMAC verified, delivery id unique)
+  → pull_request opened/reopened/synchronize
+  → resolve registered repository + local checkout/index
+  → upsert pull_request, enqueue review (dedupe: repo + head SHA)
+  → worker: app JWT → installation token → fetch PR diff
+  → review pipeline (same path as API/CLI reviews)
+  → publisher: eligible findings → one COMMENT review + neutral check run
+  → per-finding publish_state / publish_detail, review publish_state
+```
+
+The audit trail is `webhook_deliveries` (signature seen, payload hash, status,
+reason, job id), not application logs alone. `GitHubPublisher` implements the same
+`Publisher` protocol as any future integration; when GitHub is unconfigured the
+pipeline records `publish_state=skipped` with the reason. See
+[GITHUB.md](GITHUB.md) for permissions, setup and failure semantics.
+
 ## Extension points
 
 - **Publisher** (`services/review`): publication is a protocol. No publisher means
-  `publish_state=skipped` with an explicit metadata reason. The GitHub publisher is
-  milestone 5.
+  `publish_state=skipped` with an explicit metadata reason. `GitHubPublisher`
+  (`services/github/publisher.py`) implements it with least-privilege installation
+  tokens, comment filtering and per-finding publication state.
 - **Retrieval strategy**: add a strategy to the enum and the service; the evaluation
   harness picks it up because it consumes the same interface.
 - **LLM/embedding providers**: implement the base class; the factory maps settings

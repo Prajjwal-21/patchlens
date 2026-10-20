@@ -6,6 +6,7 @@ from patchlens.api.deps import require_auth
 from patchlens.api.routes import (
     evaluation,
     findings,
+    github,
     health,
     jobs,
     repositories,
@@ -15,6 +16,9 @@ from patchlens.api.routes import (
 
 api_router = APIRouter()
 api_router.include_router(health.router)
+# The GitHub router contains one deliberately public route (the HMAC-verified
+# webhook receiver); its read endpoints declare the auth dependency themselves.
+api_router.include_router(github.router, prefix="/api/v1")
 api_router.include_router(repositories.router, prefix="/api/v1", dependencies=[Depends(require_auth)])
 api_router.include_router(reviews.router, prefix="/api/v1", dependencies=[Depends(require_auth)])
 api_router.include_router(findings.router, prefix="/api/v1", dependencies=[Depends(require_auth)])

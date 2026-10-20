@@ -134,6 +134,10 @@ class ReviewOut(BaseModel):
     usage: dict[str, Any] = Field(default_factory=dict)
     job_id: str | None = None
     metadata: dict[str, Any] | None = None
+    publish_state: str = "not_published"
+    publish_detail: str | None = None
+    published_comment_url: str | None = None
+    published_at: datetime | None = None
 
 
 class ReviewCreateResponse(BaseModel):
@@ -369,6 +373,57 @@ class EvalRunCreateRequest(BaseModel):
     )
 
 
+# --------------------------------------------------------------------- github
+class GitHubWebhookResponse(BaseModel):
+    delivery_id: str
+    event: str
+    action: str | None = None
+    status: str
+    detail: str
+    job_id: str | None = None
+
+
+class GitHubInstallationOut(BaseModel):
+    id: str
+    installation_id: str
+    account_login: str
+    account_type: str
+    repository_selection: str
+    repository_count: int
+    suspended: bool
+    permissions: dict[str, Any] = Field(default_factory=dict)
+    events: list[str] = Field(default_factory=list)
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class GitHubInstallationListResponse(BaseModel):
+    items: list[GitHubInstallationOut]
+    pagination: Pagination
+
+
+class WebhookDeliveryOut(BaseModel):
+    id: str
+    delivery_id: str
+    event: str
+    action: str | None = None
+    repository_full_name: str | None = None
+    sender: str | None = None
+    signature_verified: bool
+    status: str
+    payload_bytes: int
+    payload_sha256: str
+    job_id: str | None = None
+    error: str | None = None
+    received_at: datetime | None = None
+    processed_at: datetime | None = None
+
+
+class WebhookDeliveryListResponse(BaseModel):
+    items: list[WebhookDeliveryOut]
+    pagination: Pagination
+
+
 __all__ = [
     "DeleteResponse",
     "ErrorDetail",
@@ -387,6 +442,9 @@ __all__ = [
     "FindingFeedbackOut",
     "FindingListResponse",
     "FindingOut",
+    "GitHubInstallationListResponse",
+    "GitHubInstallationOut",
+    "GitHubWebhookResponse",
     "HealthDetailResponse",
     "HealthResponse",
     "IndexRequest",
@@ -402,4 +460,6 @@ __all__ = [
     "ReviewCreateResponse",
     "ReviewOut",
     "SettingsResponse",
+    "WebhookDeliveryListResponse",
+    "WebhookDeliveryOut",
 ]

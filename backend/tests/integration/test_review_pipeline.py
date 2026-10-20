@@ -27,6 +27,16 @@ from tests.conftest import index_repository, register_repository
 from tests.helpers import apply_new_state
 
 
+class FailingPublisher:
+    """A publisher that fails after marking findings, exercising the catch path."""
+
+    def publish(self, session: Any, review: Any, findings: list[Finding]) -> dict[str, Any]:
+        for finding in findings:
+            finding.publish_state = PublishState.FAILED.value
+            finding.publish_detail = "simulated outage"
+        raise ProviderError("simulated GitHub outage")
+
+
 def build_review(
     session,
     settings: Settings,
@@ -183,12 +193,31 @@ class TestReviewEndToEnd:
         result = build_review(session, app_settings, repository, diff_text)
         publication = result.review.metadata_json["publication"]
         assert publication["state"] == "skipped"
-        assert "not active" in publication["detail"]
+        assert "publishing is disabled" in publication["detail"]
+        assert result.review.publish_state == PublishState.SKIPPED.value
         publishable = [
             f for f in result.findings if f.verification_status in {"verified", "needs_manual_verification"}
         ]
         assert publishable
         assert all(f.publish_state == PublishState.SKIPPED.value for f in publishable)
+        assert all(f.publish_detail for f in publishable)
+
+    def test_publication_failure_is_recorded_without_failing_the_review(
+        self, session, app_settings, indexed_repository, diff_text
+    ) -> None:
+        repository, _ = indexed_repository
+        result = build_review(session, app_settings, repository, diff_text, publisher=FailingPublisher())
+        review = result.review
+        assert review.status == "succeeded"
+        assert review.publish_state == PublishState.FAILED.value
+        assert "simulated GitHub outage" in (review.publish_detail or "")
+        assert any("publication failed" in warning for warning in result.warnings)
+        publishable = [
+            f for f in result.findings if f.verification_status in {"verified", "needs_manual_verification"}
+        ]
+        assert publishable
+        assert all(f.publish_state == PublishState.FAILED.value for f in publishable)
+        assert all("simulated outage" in (f.publish_detail or "") for f in publishable)
 
     def test_review_is_idempotent_for_the_same_commit_and_diff(
         self, session, app_settings, indexed_repository, diff_text

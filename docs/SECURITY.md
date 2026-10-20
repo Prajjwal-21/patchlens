@@ -20,18 +20,58 @@ aspiration.
 ### Authentication and authorization
 
 - When `API_AUTH_TOKEN` is set, every data route (repositories, reviews, findings,
-  jobs, settings) requires `Authorization: Bearer <token>`. Comparison is
-  constant-time (`hmac.compare_digest`).
+  jobs, settings, evaluation, GitHub installations/deliveries) requires
+  `Authorization: Bearer <token>`. Comparison is constant-time
+  (`hmac.compare_digest`).
 - With no token configured the instance is explicitly a local development instance;
   this is why the frontend can discover `auth_required` from the public
   `/api/v1/meta` endpoint before it has a token.
 - `/healthz`, `/readyz` and `/api/v1/meta` are public: probes must not need
   credentials, and meta exposes no secrets (provider names, capability flags,
   masked configuration).
+- `POST /api/v1/github/webhooks` is public by necessity (GitHub cannot present a
+  bearer token) and is authenticated by the HMAC signature instead. With no
+  `GITHUB_WEBHOOK_SECRET` configured it returns 502 and never falls back to
+  unauthenticated processing.
 - Production refuses local checkout registration, so a deployment cannot be talked
   into indexing an arbitrary server path through the API.
 - Request bodies are capped (`MAX_REQUEST_BYTES`, default 4 MiB; webhooks have their
-  own smaller cap). Oversized bodies get a structured 413 rather than a stack trace.
+  own smaller cap, `MAX_WEBHOOK_BYTES`, default 2 MiB, checked against the actual
+  raw bytes). Oversized bodies get a structured 413 rather than a stack trace.
+
+### GitHub webhook authenticity and replay protection
+
+- The signature is computed over the **raw request body** and compared in constant
+  time with `X-Hub-Signature-256`; missing, malformed or wrong signatures are 403 and
+  no delivery row is written.
+- `X-GitHub-Delivery` is unique in the database. A retry returns 202 `duplicate`
+  without re-running work. If the same delivery id arrives with different body bytes
+  (SHA-256 compared), the conflict is recorded in the response and logs rather than
+  silently accepted.
+- Unexpected processing errors roll back the delivery row, so a GitHub retry can be
+  processed; deterministic failures (unregistered repository, malformed payload) are
+  committed as `failed` with the reason so the dashboard is not silently empty.
+- Supported events are allow-listed; unknown events are recorded as `ignored` rather
+  than executed.
+
+### GitHub App authentication and publication
+
+- App authentication is RS256 JWT → installation token. Tokens are cached in memory
+  only, refreshed before expiry, scoped to one installation, and never written to the
+  database or logs.
+- The App permission set is least-privilege: metadata read, pull requests write,
+  checks write. The token cannot push code, change workflows, read secrets or
+  administer the repository.
+- Publication is filtered: only `verified` and `needs_manual_verification` findings,
+  only configured severities, only verified added-line anchors and safe relative
+  paths, and at most `GITHUB_MAX_COMMENTS_PER_REVIEW` comments.
+- The review event is always `COMMENT`. The check run is always `neutral`; PatchLens
+  never approves, requests changes or blocks a merge.
+- Comment text excludes raw code excerpts and is passed through the same secret
+  redaction as logs, so a detected hard-coded credential is not copied into a public
+  pull-request comment.
+- Every finding persists `publish_state`/`publish_detail`; API failure marks findings
+  `failed` with a bounded provider message instead of claiming success.
 
 ### Path handling
 
@@ -83,13 +123,9 @@ aspiration.
 
 ## Planned and not yet implemented
 
-These are milestone 5–7 items. They must not be described as protections until they
+These are milestone 6–7 items. They must not be described as protections until they
 land with tests:
 
-- **GitHub webhook signature verification** (HMAC-SHA256 of the raw body) and
-  delivery-id deduplication. Not implemented; no webhook route exists yet.
-- **GitHub App authentication** (RS256 app JWT → installation token, least-privilege
-  permissions). Not implemented.
 - **Test execution sandbox.** Execution tiers are planned: disabled by default,
   opt-in subprocess (explicitly *not* a security boundary), and Docker with network
   disabled and resource limits. Today no generated code is executed at all, and the
@@ -98,6 +134,20 @@ land with tests:
 
 ## Known limitations
 
+- **No live GitHub App installation has been exercised.** Webhook verification,
+  JWT/installation-token auth, diff fetch, publishing and the neutral check run are
+  covered by integration tests with a generated RSA key and an `httpx.MockTransport`
+  GitHub API. No request has been made to github.com from the development
+  environment. See [GITHUB.md](GITHUB.md).
+- **Publication is at-least-once across a crash.** GitHub has no idempotency key for
+  review creation. If the process dies after GitHub accepts a review but before the
+  database commit, a retry can create a second review. The stored review URL makes it
+  visible; there is no reconciliation job.
+- **No remote cloning.** A webhook for a repository without a registered local
+  checkout and successful index is recorded as failed with that reason. The worker
+  does not clone attacker-controlled repositories, which also removes an SSRF path.
+- **GitHub Enterprise is untested.** `GITHUB_API_BASE_URL` is configurable, but only
+  the mock base URL has been used.
 - The mock LLM provider is not a security boundary; it exists to exercise the
   pipeline. Real model behaviour (including prompt injection resistance) can only be
   assessed with a real provider, which has not been run here.

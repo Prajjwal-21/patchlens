@@ -455,6 +455,8 @@ class TestAuthentication:
             assert client.get("/api/v1/settings").status_code == 401
             assert client.get("/api/v1/evaluation/runs").status_code == 401
             assert client.get("/api/v1/evaluation/datasets").status_code == 401
+            assert client.get("/api/v1/github/installations").status_code == 401
+            assert client.get("/api/v1/github/deliveries").status_code == 401
 
             wrong = client.get("/api/v1/repositories", headers={"Authorization": "Bearer nope"})
             assert wrong.status_code == 401

@@ -113,6 +113,14 @@ class Review(Base, TimestampMixin):
     usage: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    #: Publication outcome is a review-level fact as well as a per-finding one: a
+    #: review with zero eligible findings still needs an auditable "skipped" state.
+    publish_state: Mapped[str] = mapped_column(
+        String(32), nullable=False, default=PublishState.NOT_PUBLISHED.value
+    )
+    publish_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    published_comment_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
     pull_request: Mapped[PullRequest | None] = relationship(back_populates="reviews")
     findings: Mapped[list[Finding]] = relationship(

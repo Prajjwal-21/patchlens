@@ -7,14 +7,18 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from patchlens.core.config import Settings
 from patchlens.core.enums import IndexStatus, ReviewStatus
-from patchlens.core.errors import ProviderError
+from patchlens.core.errors import ProviderError, ProviderNotConfiguredError
 from patchlens.core.logging import describe_exception, get_logger, log_extra
 from patchlens.db.models.job import Job
 from patchlens.db.models.repository import Repository
+from patchlens.db.models.review import Finding, Review
+from patchlens.services.github.client import GitHubClient, build_github_client
+from patchlens.services.github.publisher import GitHubPublisher
 from patchlens.services.ingestion.indexer import RepositoryIndexer
 from patchlens.services.providers.factory import build_embedding_provider
 from patchlens.services.review.pipeline import run_review
@@ -112,11 +116,12 @@ def handle_index_repository(session: Session, job: Job, settings: Settings) -> d
 
 
 def handle_review_pull_request(session: Session, job: Job, settings: Settings) -> dict[str, Any]:
-    """Run the review pipeline for a supplied diff.
+    """Run the review pipeline for a supplied diff or a GitHub pull request.
 
-    Remote diff retrieval (GitHub API) is wired in by the GitHub integration; the
-    payload must contain ``diff_text`` until then, and the handler says so rather
-    than silently producing an empty review.
+    Webhook jobs carry only the pull request reference; the diff is fetched with
+    the installation token at execution time. The diff is never persisted in the
+    job payload (it can be large and may contain code that should not be copied
+    into the queue table).
     """
     payload = job.payload or {}
     repository = session.get(Repository, str(payload.get("repository_id") or ""))
@@ -124,11 +129,26 @@ def handle_review_pull_request(session: Session, job: Job, settings: Settings) -
         raise NonRetryableJobError("repository not found", error_type="RepositoryNotFound")
     diff_text = payload.get("diff_text")
     if not isinstance(diff_text, str) or not diff_text.strip():
-        raise NonRetryableJobError(
-            "job payload has no diff_text and no GitHub diff fetcher is configured",
-            error_type="MissingDiff",
-        )
+        try:
+            diff_text = _fetch_pull_request_diff(repository, payload, settings)
+        except ProviderError as exc:
+            raise JobFailure(exc.message, retryable=True, error_type=type(exc).__name__) from exc
     commit_sha = str(payload.get("commit_sha") or "unknown")
+
+    client: GitHubClient | None = None
+    publisher: GitHubPublisher | None = None
+    if bool(payload.get("publish")) and settings.github_publish_enabled:
+        try:
+            client = build_github_client(settings)
+        except ProviderNotConfiguredError as exc:
+            # Publishing was requested but credentials are absent. The review still
+            # runs; publication is recorded as skipped rather than invented.
+            logger.warning(
+                "publishing requested but GitHub is not configured",
+                extra=log_extra(review_repository=repository.full_name, error=exc.message),
+            )
+        else:
+            publisher = GitHubPublisher(client, settings)
 
     try:
         result = run_review(
@@ -140,13 +160,22 @@ def handle_review_pull_request(session: Session, job: Job, settings: Settings) -
             pull_request_id=payload.get("pull_request_id"),
             trigger=str(payload.get("trigger") or "job"),
             settings=settings,
+            publisher=publisher,
         )
     except ProviderError as exc:
         raise JobFailure(exc.message, retryable=True, error_type=type(exc).__name__) from exc
     except Exception as exc:
         raise JobFailure(f"{type(exc).__name__}: {exc}", retryable=True) from exc
+    finally:
+        if client is not None:
+            client.close()
 
     review = result.review
+    if isinstance(review, Review) and review.job_id != job.id:
+        # The pipeline creates the review before it knows the queue identity.
+        review.job_id = job.id
+        session.add(review)
+        session.commit()
     if review.status == ReviewStatus.FAILED.value:
         retryable = "provider failed" in (review.error or "")
         raise JobFailure(
@@ -160,7 +189,39 @@ def handle_review_pull_request(session: Session, job: Job, settings: Settings) -
         "findings": review.finding_count,
         "verified_findings": review.verified_finding_count,
         "is_mock_provider": review.is_mock_provider,
+        "publish_state": review.publish_state,
+        "finding_publish_states": _finding_publish_states(session, review.id),
     }
+
+
+def _fetch_pull_request_diff(repository: Repository, payload: dict[str, Any], settings: Settings) -> str:
+    number = payload.get("pull_request_number")
+    installation_id = payload.get("installation_id") or repository.installation_id
+    if not number or not installation_id:
+        raise NonRetryableJobError(
+            "job payload has no diff_text and no pull request reference; cannot fetch a diff",
+            error_type="MissingDiff",
+        )
+    if not settings.github_configured:
+        raise NonRetryableJobError(
+            "GitHub is not configured; the pull request diff cannot be fetched",
+            error_type="ProviderNotConfigured",
+        )
+    full_name = str(payload.get("repository_full_name") or repository.full_name)
+    with build_github_client(settings) as client:
+        return client.pull_request_diff(
+            repository=full_name,
+            number=int(number),
+            installation_id=str(installation_id),
+        )
+
+
+def _finding_publish_states(session: Session, review_id: str) -> dict[str, int]:
+    """Small publication histogram for the job result (no finding content)."""
+    states: dict[str, int] = {}
+    for state in session.scalars(select(Finding.publish_state).where(Finding.review_id == review_id)):
+        states[state] = states.get(state, 0) + 1
+    return states
 
 
 HANDLERS: dict[str, Handler] = {

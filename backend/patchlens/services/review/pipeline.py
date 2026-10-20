@@ -499,28 +499,59 @@ class ReviewPipeline:
             if finding.verification_status
             in {VerificationStatus.VERIFIED.value, VerificationStatus.NEEDS_MANUAL_VERIFICATION.value}
         ]
+        for finding in findings:
+            if finding not in publishable and finding.publish_state == PublishState.NOT_PUBLISHED.value:
+                finding.publish_state = PublishState.SKIPPED.value
+                finding.publish_detail = (
+                    f"verification status '{finding.verification_status}' is not publishable"
+                )
         if self.publisher is None:
+            skipped_detail = (
+                "publication skipped: GitHub publishing is disabled or the App is not "
+                "configured (GITHUB_PUBLISH_ENABLED, GITHUB_APP_ID, GITHUB_PRIVATE_KEY)"
+            )
             for finding in publishable:
                 finding.publish_state = PublishState.SKIPPED.value
-                finding.publish_detail = "no publisher configured for this review"
+                finding.publish_detail = skipped_detail
+            review.publish_state = PublishState.SKIPPED.value
+            review.publish_detail = skipped_detail
             review.metadata_json = {
                 **(review.metadata_json or {}),
                 "publication": {
-                    "state": "skipped",
-                    "detail": "no publisher configured (GitHub integration not active)",
+                    "state": PublishState.SKIPPED.value,
+                    "detail": skipped_detail,
                     "eligible": len(publishable),
                 },
             }
             return
         try:
             summary = self.publisher.publish(self.session, review, publishable)
+            state = str(summary.get("state") or "failed")
+            try:
+                publish_state = PublishState(state)
+            except ValueError:
+                publish_state = PublishState.FAILED
+                summary = {**summary, "detail": f"publisher returned an unknown state '{state}'"}
+            review.publish_state = publish_state.value
+            review.publish_detail = str(summary.get("detail") or "")[:2_000] or None
+            if publish_state is PublishState.PUBLISHED:
+                review.published_at = datetime.now(UTC)
+                url = summary.get("review_url")
+                if isinstance(url, str) and url:
+                    review.published_comment_url = url
             review.metadata_json = {**(review.metadata_json or {}), "publication": summary}
         except Exception as exc:
-            detail = describe_exception(exc)
-            result.warnings.append(f"publication failed: {detail['message']}")
+            failure = describe_exception(exc)
+            review.publish_state = PublishState.FAILED.value
+            review.publish_detail = str(failure["message"])[:2_000]
+            for finding in publishable:
+                if finding.publish_state == PublishState.NOT_PUBLISHED.value:
+                    finding.publish_state = PublishState.FAILED.value
+                    finding.publish_detail = str(failure["message"])[:1_000]
+            result.warnings.append(f"publication failed: {failure['message']}")
             review.metadata_json = {
                 **(review.metadata_json or {}),
-                "publication": {"state": "failed", "detail": detail["message"]},
+                "publication": {"state": PublishState.FAILED.value, "detail": failure["message"]},
             }
 
     # ------------------------------------------------------------------ helpers
