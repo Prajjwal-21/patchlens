@@ -1,0 +1,85 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: backend (lint, types, tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.lock.txt
+            backend/requirements-dev.lock.txt
+
+      - name: Install locked dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.lock.txt
+
+      - name: Formatting
+        run: python -m ruff format --check patchlens tests
+
+      - name: Lint
+        run: python -m ruff check patchlens tests
+
+      - name: Types
+        run: python -m mypy patchlens
+
+      - name: Tests
+        env:
+          ENVIRONMENT: test
+        # A test database is created inside the pytest fixtures; no services are
+        # needed because SQLite and the deterministic mock provider are the default.
+        run: python -m pytest tests -q --cov=patchlens --cov-report=term-missing
+
+  migrations:
+    name: migrations (upgrade, drift check, downgrade)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DATABASE_URL: sqlite+pysqlite:///${{ github.workspace }}/ci-migrations.db
+      ENVIRONMENT: development
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.lock.txt
+
+      - name: Install runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.lock.txt
+
+      - name: Apply migrations
+        run: alembic upgrade head
+
+      - name: Fail if models and migrations disagree
+        run: alembic check
+
+      - name: Roll back to an empty schema
+        run: alembic downgrade base
+
+      - name: Re-apply from scratch
+        run: alembic upgrade head

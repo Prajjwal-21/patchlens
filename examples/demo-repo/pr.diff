@@ -1,0 +1,104 @@
+diff --git a/app/calculator.py b/app/calculator.py
+index c58e531..6805cc7 100644
+--- a/app/calculator.py
++++ b/app/calculator.py
+@@ -2,6 +2,8 @@
+ 
+ from __future__ import annotations
+ 
++import hashlib
++import json
+ from decimal import Decimal
+ 
+ 
+@@ -11,11 +13,11 @@ def add(a: int, b: int) -> int:
+ 
+ 
+ def divide(a: float, b: float) -> float:
+-    """Return a divided by b.
+-
+-    The naive version: the caller is expected to have checked ``b``.
+-    """
+-    return a / b
++    """Return a divided by b, or 0 when the division is not possible."""
++    try:
++        return a / b
++    except:
++        return 0
+ 
+ 
+ def mean(values: list[float]) -> float:
+@@ -27,3 +29,17 @@ def apply_discount(price: Decimal, percent: int) -> Decimal:
+     """Apply an integer percentage discount to a price."""
+     factor = Decimal(100 - percent) / Decimal(100)
+     return (price * factor).quantize(Decimal("0.01"))
++
++
++def summarise(values: list[float], cache: dict = {}) -> dict:
++    """Return a digest of the supplied values.
++
++    The digest is cached so repeated calls in one request are cheap.
++    """
++    key = json.dumps(values)
++    if key in cache:
++        return cache[key]
++    digest = hashlib.md5(key.encode()).hexdigest()
++    summary = {"count": len(values), "sum": sum(values), "digest": digest}
++    cache[key] = summary
++    return summary
+diff --git a/app/reporting.py b/app/reporting.py
+new file mode 100644
+index 0000000..769b958
+--- /dev/null
++++ b/app/reporting.py
+@@ -0,0 +1,32 @@
++"""Price reporting helpers added in this pull request."""
++
++from __future__ import annotations
++
++import subprocess
++from datetime import datetime
++
++from app.pricing import PriceTable
++
++# TODO: move this to the environment before the next release.
++LEGACY_API_KEY = "A1b2C3d4E5f6G7h8I9j0"
++
++
++def load_prices(connection, table: PriceTable) -> list[tuple[str, str]]:
++    """Load the price table for every known sku."""
++    rows: list[tuple[str, str]] = []
++    for sku in table.known_skus():
++        cursor = connection.cursor()
++        cursor.execute(f"SELECT price FROM prices WHERE sku = '{sku}'")
++        rows.extend(cursor.fetchall())
++    return rows
++
++
++def export_prices(dsn: str) -> str:
++    """Export the price table with psql."""
++    output = subprocess.run(f"psql {dsn} -c 'select 1'", capture_output=True, shell=True)
++    return output.stdout.decode().strip()
++
++
++def generated_at() -> str:
++    """Return the export timestamp shown on the report header."""
++    return datetime.utcnow().isoformat()
+diff --git a/tests/test_calculator.py b/tests/test_calculator.py
+index 0cd104e..8357f5e 100644
+--- a/tests/test_calculator.py
++++ b/tests/test_calculator.py
+@@ -26,3 +26,13 @@ def test_divide_returns_the_quotient() -> None:
+ def test_divide_by_zero_is_undefined() -> None:
+     with pytest.raises(ZeroDivisionError):
+         divide(1, 0)
++
++
++def test_divide_by_zero_returns_zero() -> None:
++    # The new behaviour: callers no longer need to guard the divisor.
++    assert divide(1, 0) == 0
++
++
++def test_divide_by_zero_returns_zero() -> None:
++    # The new behaviour: callers no longer need to guard the divisor.
++    assert divide(1, 0) == 0

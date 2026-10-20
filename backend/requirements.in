@@ -1,0 +1,32 @@
+# PatchLens backend runtime requirements (abstract, version-bounded).
+# The exact resolved versions are pinned in requirements.lock.txt.
+# Regenerate: make lock   (see Makefile)
+
+# --- Web framework ---
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30,<1.0
+python-multipart>=0.0.9,<1.0
+
+# --- Validation / settings ---
+pydantic>=2.8,<3.0
+pydantic-settings>=2.4,<3.0
+
+# --- Persistence ---
+SQLAlchemy>=2.0.30,<2.1
+alembic>=1.13,<2.0
+# PostgreSQL driver + pgvector type support (production backend).
+psycopg[binary]>=3.2,<4.0
+pgvector>=0.3,<1.0
+
+# --- Outbound HTTP (LLM providers, embeddings, GitHub API) ---
+httpx>=0.27,<1.0
+
+# --- GitHub App authentication (RS256 app JWTs) ---
+PyJWT[crypto]>=2.8,<3.0
+cryptography>=43,<47
+
+# --- Redis (optional low-latency job wake-ups) ---
+redis>=5.0,<8.0
+
+# --- Config/data files ---
+PyYAML>=6.0,<7.0

@@ -1,0 +1,134 @@
+{
+  "name": "review-demo-v1",
+  "version": "1",
+  "kind": "review",
+  "repository": "demo/patchlens-demo",
+  "commit_sha": "demo-local",
+  "description": "Three labelled diffs: the demo pull request, a clean tested change (negative control), and a logic bug that rule-based checks cannot see.",
+  "provenance": "Authored for this repository against the demo fixture. Expected findings were written by inspecting each diff; the fixture was built with known defects.",
+  "license_note": "Synthetic fixture; no third-party content.",
+  "limitations": "Three cases, one synthetic repository, author-labelled. Labels in the correctness and security categories are marked must_find; testing, performance and maintainability labels are scored but optional. Case-003 deliberately requires semantic judgement, so a rule-only provider is expected to miss it.",
+  "cases": [
+    {
+      "id": "review-001",
+      "commit_sha": "demo-pr",
+      "notes": "The bundled demo PR: every labelled defect is intentionally present.",
+      "diff_text": "diff --git a/app/calculator.py b/app/calculator.py\nindex c58e531..6805cc7 100644\n--- a/app/calculator.py\n+++ b/app/calculator.py\n@@ -2,6 +2,8 @@\n \n from __future__ import annotations\n \n+import hashlib\n+import json\n from decimal import Decimal\n \n \n@@ -11,11 +13,11 @@ def add(a: int, b: int) -> int:\n \n \n def divide(a: float, b: float) -> float:\n-    \"\"\"Return a divided by b.\n-\n-    The naive version: the caller is expected to have checked ``b``.\n-    \"\"\"\n-    return a / b\n+    \"\"\"Return a divided by b, or 0 when the division is not possible.\"\"\"\n+    try:\n+        return a / b\n+    except:\n+        return 0\n \n \n def mean(values: list[float]) -> float:\n@@ -27,3 +29,17 @@ def apply_discount(price: Decimal, percent: int) -> Decimal:\n     \"\"\"Apply an integer percentage discount to a price.\"\"\"\n     factor = Decimal(100 - percent) / Decimal(100)\n     return (price * factor).quantize(Decimal(\"0.01\"))\n+\n+\n+def summarise(values: list[float], cache: dict = {}) -> dict:\n+    \"\"\"Return a digest of the supplied values.\n+\n+    The digest is cached so repeated calls in one request are cheap.\n+    \"\"\"\n+    key = json.dumps(values)\n+    if key in cache:\n+        return cache[key]\n+    digest = hashlib.md5(key.encode()).hexdigest()\n+    summary = {\"count\": len(values), \"sum\": sum(values), \"digest\": digest}\n+    cache[key] = summary\n+    return summary\ndiff --git a/app/reporting.py b/app/reporting.py\nnew file mode 100644\nindex 0000000..769b958\n--- /dev/null\n+++ b/app/reporting.py\n@@ -0,0 +1,32 @@\n+\"\"\"Price reporting helpers added in this pull request.\"\"\"\n+\n+from __future__ import annotations\n+\n+import subprocess\n+from datetime import datetime\n+\n+from app.pricing import PriceTable\n+\n+# TODO: move this to the environment before the next release.\n+LEGACY_API_KEY = \"A1b2C3d4E5f6G7h8I9j0\"\n+\n+\n+def load_prices(connection, table: PriceTable) -> list[tuple[str, str]]:\n+    \"\"\"Load the price table for every known sku.\"\"\"\n+    rows: list[tuple[str, str]] = []\n+    for sku in table.known_skus():\n+        cursor = connection.cursor()\n+        cursor.execute(f\"SELECT price FROM prices WHERE sku = '{sku}'\")\n+        rows.extend(cursor.fetchall())\n+    return rows\n+\n+\n+def export_prices(dsn: str) -> str:\n+    \"\"\"Export the price table with psql.\"\"\"\n+    output = subprocess.run(f\"psql {dsn} -c 'select 1'\", capture_output=True, shell=True)\n+    return output.stdout.decode().strip()\n+\n+\n+def generated_at() -> str:\n+    \"\"\"Return the export timestamp shown on the report header.\"\"\"\n+    return datetime.utcnow().isoformat()\ndiff --git a/tests/test_calculator.py b/tests/test_calculator.py\nindex 0cd104e..8357f5e 100644\n--- a/tests/test_calculator.py\n+++ b/tests/test_calculator.py\n@@ -26,3 +26,13 @@ def test_divide_returns_the_quotient() -> None:\n def test_divide_by_zero_is_undefined() -> None:\n     with pytest.raises(ZeroDivisionError):\n         divide(1, 0)\n+\n+\n+def test_divide_by_zero_returns_zero() -> None:\n+    # The new behaviour: callers no longer need to guard the divisor.\n+    assert divide(1, 0) == 0\n+\n+\n+def test_divide_by_zero_returns_zero() -> None:\n+    # The new behaviour: callers no longer need to guard the divisor.\n+    assert divide(1, 0) == 0\n",
+      "expected": [
+        {
+          "category": "correctness",
+          "rule_id": "bare-except",
+          "path": "app/calculator.py",
+          "line": 19,
+          "must_find": true
+        },
+        {
+          "category": "correctness",
+          "rule_id": "mutable-default-argument",
+          "path": "app/calculator.py",
+          "line": 34,
+          "must_find": true
+        },
+        {
+          "category": "testing",
+          "rule_id": "changed-code-without-related-test",
+          "path": "app/calculator.py",
+          "line": 34,
+          "must_find": false
+        },
+        {
+          "category": "security",
+          "rule_id": "weak-hash-algorithm",
+          "path": "app/calculator.py",
+          "line": 42,
+          "must_find": true
+        },
+        {
+          "category": "security",
+          "rule_id": "hardcoded-secret",
+          "path": "app/reporting.py",
+          "line": 11,
+          "must_find": true
+        },
+        {
+          "category": "testing",
+          "rule_id": "changed-code-without-related-test",
+          "path": "app/reporting.py",
+          "line": 14,
+          "must_find": false
+        },
+        {
+          "category": "performance",
+          "rule_id": "query-inside-loop",
+          "path": "app/reporting.py",
+          "line": 19,
+          "must_find": false
+        },
+        {
+          "category": "security",
+          "rule_id": "sql-string-interpolation",
+          "path": "app/reporting.py",
+          "line": 19,
+          "must_find": true
+        },
+        {
+          "category": "testing",
+          "rule_id": "changed-code-without-related-test",
+          "path": "app/reporting.py",
+          "line": 24,
+          "must_find": false
+        },
+        {
+          "category": "security",
+          "rule_id": "subprocess-shell-true",
+          "path": "app/reporting.py",
+          "line": 26,
+          "must_find": true
+        },
+        {
+          "category": "testing",
+          "rule_id": "changed-code-without-related-test",
+          "path": "app/reporting.py",
+          "line": 30,
+          "must_find": false
+        },
+        {
+          "category": "maintainability",
+          "rule_id": "datetime-utcnow-deprecated",
+          "path": "app/reporting.py",
+          "line": 32,
+          "must_find": false
+        }
+      ]
+    },
+    {
+      "id": "review-002",
+      "commit_sha": "demo-clean-1",
+      "notes": "Negative control: a tested method using a bounded lookup loop. No finding is expected; anything reported here is a false positive.",
+      "diff_text": "diff --git a/app/pricing.py b/app/pricing.py\nindex 739ee74..0aee5bd 100644\n--- a/app/pricing.py\n+++ b/app/pricing.py\n@@ -28,3 +28,7 @@ class PriceTable:\n     def known_skus(self) -> list[str]:\n         \"\"\"Return every sku in the table, sorted for stable output.\"\"\"\n         return sorted(self._prices)\n+\n+    def total(self, skus: list[str]) -> Decimal:\n+        \"\"\"Return the summed price of ``skus``.\"\"\"\n+        return sum((self.lookup(sku) for sku in skus), start=Decimal(\"0\"))\ndiff --git a/tests/test_pricing.py b/tests/test_pricing.py\nnew file mode 100644\nindex 0000000..25d69c5\n--- /dev/null\n+++ b/tests/test_pricing.py\n@@ -0,0 +1,15 @@\n+\"\"\"Tests for the price table.\"\"\"\n+\n+from __future__ import annotations\n+\n+from decimal import Decimal\n+\n+from app.pricing import PriceTable\n+\n+\n+def test_total_sums_known_skus() -> None:\n+    assert PriceTable().total([\"coffee\", \"mug\"]) == Decimal(\"23.90\")\n+\n+\n+def test_total_of_no_skus_is_zero() -> None:\n+    assert PriceTable().total([]) == Decimal(\"0\")\n",
+      "expected": []
+    },
+    {
+      "id": "review-003",
+      "commit_sha": "demo-logic-1",
+      "notes": "Off-by-one in mean(). The deterministic rules are expected to miss the correctness defect. The untested changed symbol is still expected to be reported under testing.",
+      "diff_text": "diff --git a/app/calculator.py b/app/calculator.py\nindex c58e531..44ba12b 100644\n--- a/app/calculator.py\n+++ b/app/calculator.py\n@@ -20,7 +20,7 @@ def divide(a: float, b: float) -> float:\n \n def mean(values: list[float]) -> float:\n     \"\"\"Return the arithmetic mean.\"\"\"\n-    return sum(values) / len(values)\n+    return sum(values) / (len(values) - 1)\n \n \n def apply_discount(price: Decimal, percent: int) -> Decimal:\n",
+      "expected": [
+        {
+          "category": "correctness",
+          "path": "app/calculator.py",
+          "line": 23,
+          "rule_id": null,
+          "must_find": true
+        },
+        {
+          "category": "testing",
+          "path": "app/calculator.py",
+          "line": 23,
+          "rule_id": "changed-code-without-related-test",
+          "must_find": false
+        }
+      ]
+    }
+  ]
+}

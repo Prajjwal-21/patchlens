@@ -1,0 +1,4341 @@
+{
+  "id": "evr_022b326481384153bf7d1db625d47c66",
+  "dataset_id": "eds_5fd196ce163e48b18d60ac7cbd2398e6",
+  "dataset_name": "retrieval-demo-v1",
+  "dataset_kind": "retrieval",
+  "kind": "retrieval",
+  "status": "succeeded",
+  "sample_count": 12,
+  "metrics": {
+    "k": {
+      "recall": 5,
+      "mrr": 10,
+      "ndcg": 10
+    },
+    "case_count": 12,
+    "corpus_symbols": 21,
+    "embedding_is_neural": false,
+    "best_strategy": "hybrid_rerank",
+    "unknowns": [
+      "cost_usd is UNKNOWN: no provider-reported token usage is available for local retrieval"
+    ]
+  },
+  "strategy_metrics": {
+    "static": {
+      "cases": 12,
+      "failures": 0,
+      "failure_rate": 0.0,
+      "recall@5": 0.6666666666666666,
+      "mrr@10": 0.7777777777777778,
+      "ndcg@10": 0.6875552009826293,
+      "latency_ms": {
+        "p50": 0.04412499401951209,
+        "p95": 0.07845175787224429
+      },
+      "cost_usd": null
+    },
+    "bm25": {
+      "cases": 12,
+      "failures": 0,
+      "failure_rate": 0.0,
+      "recall@5": 0.7777777777777778,
+      "mrr@10": 0.7708333333333334,
+      "ndcg@10": 0.7564302622827519,
+      "latency_ms": {
+        "p50": 0.11902100231964141,
+        "p95": 0.2082561026327311
+      },
+      "cost_usd": null
+    },
+    "semantic": {
+      "cases": 12,
+      "failures": 0,
+      "failure_rate": 0.0,
+      "recall@5": 0.75,
+      "mrr@10": 1.0,
+      "ndcg@10": 0.7891886865928486,
+      "latency_ms": {
+        "p50": 0.6823539952165447,
+        "p95": 0.7418270448397379
+      },
+      "cost_usd": null
+    },
+    "hybrid": {
+      "cases": 12,
+      "failures": 0,
+      "failure_rate": 0.0,
+      "recall@5": 0.798611111111111,
+      "mrr@10": 0.861111111111111,
+      "ndcg@10": 0.7410562800793185,
+      "latency_ms": {
+        "p50": 0.8079789986368269,
+        "p95": 0.8771329979936127
+      },
+      "cost_usd": null
+    },
+    "hybrid_rerank": {
+      "cases": 12,
+      "failures": 0,
+      "failure_rate": 0.0,
+      "recall@5": 0.798611111111111,
+      "mrr@10": 0.9375,
+      "ndcg@10": 0.83314715291436,
+      "latency_ms": {
+        "p50": 0.9212704972014762,
+        "p95": 0.9961774478142615
+      },
+      "cost_usd": null
+    }
+  },
+  "config": {
+    "strategies": [
+      "static",
+      "bm25",
+      "semantic",
+      "hybrid",
+      "hybrid_rerank"
+    ],
+    "top_k_scored": 10,
+    "repository": "demo/patchlens-demo",
+    "repository_version_id": "ver_8962174c66294ce3b1c8da66eb8e037e",
+    "dataset_commit_sha": "demo-local",
+    "settings": {
+      "retrieval_strategy": "hybrid",
+      "retrieval_top_k": 5,
+      "retrieval_candidate_k": 30,
+      "retrieval_rrf_k": 60,
+      "retrieval_bm25_k1": 1.5,
+      "retrieval_bm25_b": 0.75,
+      "reranker": "heuristic",
+      "embedding_provider": "hashing",
+      "embedding_model": "hashing-ngram-v2",
+      "embedding_dim": 512,
+      "llm_provider": "mock",
+      "llm_model": "deterministic-mock",
+      "llm_is_mock": true
+    },
+    "dataset_content_hash": "6208a5f5d6430b1093245ceb30248660bec0636d43bce5e9fb0d8bd5c35a2659",
+    "code_revision": "uncommitted",
+    "patchlens_version": "0.1.0",
+    "python_version": "3.11.15",
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "corpus_symbols": 21,
+    "corpus_commit_sha": "demo-local"
+  },
+  "limitations": [
+    "A 21-symbol synthetic repository labelled by the author. Numbers measure sanity and strategy comparison, not production retrieval quality.",
+    "all cases are in the test split and there is no dev/train split: the dataset was labelled by the author, not collected independently",
+    "retrieval metrics depend on the indexed corpus in this database; a re-index changes the corpus and invalidates comparison with earlier runs"
+  ],
+  "notes": null,
+  "error": null,
+  "started_at": "2026-10-20T06:27:34.974523Z",
+  "finished_at": "2026-10-20T06:27:35.014088Z",
+  "duration_ms": 39,
+  "results": [
+    {
+      "id": "ecr_a6a206ee197c443eb2b042cca8ffe02f",
+      "case_id": "eca_48b2a59919d2404b93943bce59737f4d",
+      "case_key": "ret-001",
+      "split": "test",
+      "strategy": "bm25",
+      "predictions": [
+        {
+          "symbol_id": "sym_f1751e18edef43299169d69e4902738a",
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "score": 12.297533,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 8.568831,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 6.291448,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 6.221035,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 3.012987,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_2486cfe0cd1a4665a5d6bb17d1636ec9",
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "score": 2.647289,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 1.647945,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0193df52287c4999a5ae6596964017d4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.lookup",
+          "score": 1.624209,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 1.334741,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_fc1d804b89804f208893c5bec415908a",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.__init__",
+          "score": 1.063835,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.6666666666666666,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.9385353628295142,
+        "latency_ms": 0.2945830055978149
+      },
+      "latency_ms": 0.2945830055978149,
+      "error": null
+    },
+    {
+      "id": "ecr_aa133a6033a64059a84d89c11b05eaa8",
+      "case_id": "eca_48b2a59919d2404b93943bce59737f4d",
+      "case_key": "ret-001",
+      "split": "test",
+      "strategy": "hybrid",
+      "predictions": [
+        {
+          "symbol_id": "sym_f1751e18edef43299169d69e4902738a",
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "score": 0.032787,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.032258,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.031498,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 0.031498,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.030769,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 0.029851,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.029644,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0193df52287c4999a5ae6596964017d4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.lookup",
+          "score": 0.029412,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_2486cfe0cd1a4665a5d6bb17d1636ec9",
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "score": 0.02904,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0bf939b274134231945904f0a719ecc7",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_returns_the_quotient",
+          "score": 0.014493,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.6666666666666666,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.91639387535362,
+        "latency_ms": 0.8742079953663051
+      },
+      "latency_ms": 0.8742079953663051,
+      "error": null
+    },
+    {
+      "id": "ecr_039f35b6008945b8bd41168a395ebaad",
+      "case_id": "eca_48b2a59919d2404b93943bce59737f4d",
+      "case_key": "ret-001",
+      "split": "test",
+      "strategy": "hybrid_rerank",
+      "predictions": [
+        {
+          "symbol_id": "sym_f1751e18edef43299169d69e4902738a",
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "score": 0.388893,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.309629,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 0.236749,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.199749,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.099385,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_0193df52287c4999a5ae6596964017d4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.lookup",
+          "score": 0.096706,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_2486cfe0cd1a4665a5d6bb17d1636ec9",
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "score": 0.09652,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 0.084925,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.072822,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0bf939b274134231945904f0a719ecc7",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_returns_the_quotient",
+          "score": 0.007246,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.6666666666666666,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.9428729785463599,
+        "latency_ms": 1.0242499993182719
+      },
+      "latency_ms": 1.0242499993182719,
+      "error": null
+    },
+    {
+      "id": "ecr_48dd2d9a96d3419e9d1ff18b36a4b1dc",
+      "case_id": "eca_48b2a59919d2404b93943bce59737f4d",
+      "case_key": "ret-001",
+      "split": "test",
+      "strategy": "semantic",
+      "predictions": [
+        {
+          "symbol_id": "sym_f1751e18edef43299169d69e4902738a",
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "score": 0.465735,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.289755,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.232155,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 0.209956,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.132527,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.106727,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 0.105039,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0193df52287c4999a5ae6596964017d4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.lookup",
+          "score": 0.085075,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0bf939b274134231945904f0a719ecc7",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_returns_the_quotient",
+          "score": 0.080599,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_cdbdd2b9ee8848a288abf17a9bcc1514",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_returns_the_sum",
+          "score": 0.079004,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.6666666666666666,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.91639387535362,
+        "latency_ms": 0.7829169917386025
+      },
+      "latency_ms": 0.7829169917386025,
+      "error": null
+    },
+    {
+      "id": "ecr_cb213b243711488295344f014e6531d9",
+      "case_id": "eca_48b2a59919d2404b93943bce59737f4d",
+      "case_key": "ret-001",
+      "split": "test",
+      "strategy": "static",
+      "predictions": [
+        {
+          "symbol_id": "sym_f1751e18edef43299169d69e4902738a",
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "score": 4.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 2.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 2.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_fc1d804b89804f208893c5bec415908a",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.__init__",
+          "score": 2.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0193df52287c4999a5ae6596964017d4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.lookup",
+          "score": 2.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_032ad4d21a4f402f9a1bab7ef9b3f5b8",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.known_skus",
+          "score": 2.0,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.9879538239787089,
+        "latency_ms": 0.11495800572447479
+      },
+      "latency_ms": 0.11495800572447479,
+      "error": null
+    },
+    {
+      "id": "ecr_d51cf3e2af6f480f8b6fa95ba4cc0aaa",
+      "case_id": "eca_b0f118f3b9374abe855d3714914246fd",
+      "case_key": "ret-002",
+      "split": "test",
+      "strategy": "bm25",
+      "predictions": [
+        {
+          "symbol_id": "sym_ff3b85d8e5cb47f2a197a310c39109af",
+          "path": "app/calculator.py",
+          "qualified_name": "add",
+          "score": 3.942655,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 2.728427,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_a6f3f1e44f1c47d4a4765da9d2e7daab",
+          "path": "app/api.py",
+          "qualified_name": "handle_divide",
+          "score": 2.36694,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0bf939b274134231945904f0a719ecc7",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_returns_the_quotient",
+          "score": 2.268097,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_67b42731e1334dfb8e4de4b64252bf7f",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_by_zero_is_undefined",
+          "score": 2.166105,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_2486cfe0cd1a4665a5d6bb17d1636ec9",
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "score": 2.153424,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 1.769718,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 1.551489,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.6666666666666666,
+        "mrr@10": 0.25,
+        "ndcg@10": 0.4442059408978529,
+        "latency_ms": 0.1376250002067536
+      },
+      "latency_ms": 0.1376250002067536,
+      "error": null
+    },
+    {
+      "id": "ecr_0838be7528b94a7188528518c5bd2b5c",
+      "case_id": "eca_b0f118f3b9374abe855d3714914246fd",
+      "case_key": "ret-002",
+      "split": "test",
+      "strategy": "hybrid",
+      "predictions": [
+        {
+          "symbol_id": "sym_a6f3f1e44f1c47d4a4765da9d2e7daab",
+          "path": "app/api.py",
+          "qualified_name": "handle_divide",
+          "score": 0.032002,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_ff3b85d8e5cb47f2a197a310c39109af",
+          "path": "app/calculator.py",
+          "qualified_name": "add",
+          "score": 0.031778,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_67b42731e1334dfb8e4de4b64252bf7f",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_by_zero_is_undefined",
+          "score": 0.031778,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.031754,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0bf939b274134231945904f0a719ecc7",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_returns_the_quotient",
+          "score": 0.031498,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_2486cfe0cd1a4665a5d6bb17d1636ec9",
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "score": 0.030077,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.030077,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.014706,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_87eab0b6ceb94ad79478fac1960f0206",
+          "path": "app/api.py",
+          "qualified_name": "handle_sum",
+          "score": 0.014286,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_868af0bf1477458dbdc323b051561bd0",
+          "path": "app/__init__.py",
+          "qualified_name": "__init__",
+          "score": 0.014085,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.6666666666666666,
+        "mrr@10": 0.3333333333333333,
+        "ndcg@10": 0.4422550763311648,
+        "latency_ms": 0.8807080012047663
+      },
+      "latency_ms": 0.8807080012047663,
+      "error": null
+    },
+    {
+      "id": "ecr_f47cc34c2bff49a9a5144b8080c7d52a",
+      "case_id": "eca_b0f118f3b9374abe855d3714914246fd",
+      "case_key": "ret-002",
+      "split": "test",
+      "strategy": "hybrid_rerank",
+      "predictions": [
+        {
+          "symbol_id": "sym_2486cfe0cd1a4665a5d6bb17d1636ec9",
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "score": 0.217538,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_a6f3f1e44f1c47d4a4765da9d2e7daab",
+          "path": "app/api.py",
+          "qualified_name": "handle_divide",
+          "score": 0.163501,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.136877,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_67b42731e1334dfb8e4de4b64252bf7f",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_by_zero_is_undefined",
+          "score": 0.123389,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_0bf939b274134231945904f0a719ecc7",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_returns_the_quotient",
+          "score": 0.123249,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_ff3b85d8e5cb47f2a197a310c39109af",
+          "path": "app/calculator.py",
+          "qualified_name": "add",
+          "score": 0.108389,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.075853,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.067538,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_87eab0b6ceb94ad79478fac1960f0206",
+          "path": "app/api.py",
+          "qualified_name": "handle_sum",
+          "score": 0.047143,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_868af0bf1477458dbdc323b051561bd0",
+          "path": "app/__init__.py",
+          "qualified_name": "__init__",
+          "score": 0.023042,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.9146628058302254,
+        "latency_ms": 0.9223749948432669
+      },
+      "latency_ms": 0.9223749948432669,
+      "error": null
+    },
+    {
+      "id": "ecr_a69dd721edd2414986027264c2a23125",
+      "case_id": "eca_b0f118f3b9374abe855d3714914246fd",
+      "case_key": "ret-002",
+      "split": "test",
+      "strategy": "semantic",
+      "predictions": [
+        {
+          "symbol_id": "sym_67b42731e1334dfb8e4de4b64252bf7f",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_by_zero_is_undefined",
+          "score": 0.145258,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_a6f3f1e44f1c47d4a4765da9d2e7daab",
+          "path": "app/api.py",
+          "qualified_name": "handle_divide",
+          "score": 0.130933,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0bf939b274134231945904f0a719ecc7",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_returns_the_quotient",
+          "score": 0.128805,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.108551,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_ff3b85d8e5cb47f2a197a310c39109af",
+          "path": "app/calculator.py",
+          "qualified_name": "add",
+          "score": 0.103904,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.093961,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_2486cfe0cd1a4665a5d6bb17d1636ec9",
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "score": 0.076495,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_cdbdd2b9ee8848a288abf17a9bcc1514",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_returns_the_sum",
+          "score": 0.052909,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_14a1f05714794d8883c6f93647caa168",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_is_commutative",
+          "score": 0.051845,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_87eab0b6ceb94ad79478fac1960f0206",
+          "path": "app/api.py",
+          "qualified_name": "handle_sum",
+          "score": 0.04367,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.6666666666666666,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.5145791307752318,
+        "latency_ms": 0.69479200465139
+      },
+      "latency_ms": 0.69479200465139,
+      "error": null
+    },
+    {
+      "id": "ecr_85a6483f68394f41b9a9a755b5d611a0",
+      "case_id": "eca_b0f118f3b9374abe855d3714914246fd",
+      "case_key": "ret-002",
+      "split": "test",
+      "strategy": "static",
+      "predictions": [
+        {
+          "symbol_id": "sym_2486cfe0cd1a4665a5d6bb17d1636ec9",
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "score": 3.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_a6f3f1e44f1c47d4a4765da9d2e7daab",
+          "path": "app/api.py",
+          "qualified_name": "handle_divide",
+          "score": 2.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0bf939b274134231945904f0a719ecc7",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_returns_the_quotient",
+          "score": 2.0,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_67b42731e1334dfb8e4de4b64252bf7f",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_by_zero_is_undefined",
+          "score": 2.0,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.9508013338940989,
+        "latency_ms": 0.044957996578887105
+      },
+      "latency_ms": 0.044957996578887105,
+      "error": null
+    },
+    {
+      "id": "ecr_cb1b8f84b7b44c8487c5bdefa70ba1c7",
+      "case_id": "eca_96ff3f9ded4148a0b52d32ab8ffe4d67",
+      "case_key": "ret-003",
+      "split": "test",
+      "strategy": "bm25",
+      "predictions": [
+        {
+          "symbol_id": "sym_0193df52287c4999a5ae6596964017d4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.lookup",
+          "score": 4.217164,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_ff3b85d8e5cb47f2a197a310c39109af",
+          "path": "app/calculator.py",
+          "qualified_name": "add",
+          "score": 3.942655,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 3.808333,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 3.473726,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 3.110929,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 3.090247,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_032ad4d21a4f402f9a1bab7ef9b3f5b8",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.known_skus",
+          "score": 2.822064,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 2.44569,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_f1751e18edef43299169d69e4902738a",
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "score": 1.591463,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_fc1d804b89804f208893c5bec415908a",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.__init__",
+          "score": 1.063835,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.6666666666666666,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.9404377217616304,
+        "latency_ms": 0.12191699352115393
+      },
+      "latency_ms": 0.12191699352115393,
+      "error": null
+    },
+    {
+      "id": "ecr_3dcc1db23eea42f2a81243bfde1d3205",
+      "case_id": "eca_96ff3f9ded4148a0b52d32ab8ffe4d67",
+      "case_key": "ret-003",
+      "split": "test",
+      "strategy": "hybrid",
+      "predictions": [
+        {
+          "symbol_id": "sym_0193df52287c4999a5ae6596964017d4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.lookup",
+          "score": 0.032787,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.031514,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 0.03125,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_ff3b85d8e5cb47f2a197a310c39109af",
+          "path": "app/calculator.py",
+          "qualified_name": "add",
+          "score": 0.031054,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 0.031025,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.030536,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_f1751e18edef43299169d69e4902738a",
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "score": 0.030366,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.029412,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.6666666666666666,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.8688109777822237,
+        "latency_ms": 0.8177080017048866
+      },
+      "latency_ms": 0.8177080017048866,
+      "error": null
+    },
+    {
+      "id": "ecr_e3eaba59e7d44ed098bca99aea72e803",
+      "case_id": "eca_96ff3f9ded4148a0b52d32ab8ffe4d67",
+      "case_key": "ret-003",
+      "split": "test",
+      "strategy": "hybrid_rerank",
+      "predictions": [
+        {
+          "symbol_id": "sym_0193df52287c4999a5ae6596964017d4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.lookup",
+          "score": 0.140393,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 0.139625,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 0.127512,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.115757,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.115268,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.114706,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_ff3b85d8e5cb47f2a197a310c39109af",
+          "path": "app/calculator.py",
+          "qualified_name": "add",
+          "score": 0.097527,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_f1751e18edef43299169d69e4902738a",
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "score": 0.097183,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.6666666666666666,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.9049495058460971,
+        "latency_ms": 0.9267920104321092
+      },
+      "latency_ms": 0.9267920104321092,
+      "error": null
+    },
+    {
+      "id": "ecr_27b5e7d8f601411ca2d35e7ad87e030e",
+      "case_id": "eca_96ff3f9ded4148a0b52d32ab8ffe4d67",
+      "case_key": "ret-003",
+      "split": "test",
+      "strategy": "semantic",
+      "predictions": [
+        {
+          "symbol_id": "sym_0193df52287c4999a5ae6596964017d4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.lookup",
+          "score": 0.216189,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.148581,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_f1751e18edef43299169d69e4902738a",
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "score": 0.13836,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 0.13704,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.124211,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 0.116281,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_ff3b85d8e5cb47f2a197a310c39109af",
+          "path": "app/calculator.py",
+          "qualified_name": "add",
+          "score": 0.091635,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.082031,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.3333333333333333,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.8590229523269858,
+        "latency_ms": 0.673459013341926
+      },
+      "latency_ms": 0.673459013341926,
+      "error": null
+    },
+    {
+      "id": "ecr_d1c0eb46fb234f579d3db30fa796b9f3",
+      "case_id": "eca_96ff3f9ded4148a0b52d32ab8ffe4d67",
+      "case_key": "ret-003",
+      "split": "test",
+      "strategy": "static",
+      "predictions": [
+        {
+          "symbol_id": "sym_0193df52287c4999a5ae6596964017d4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.lookup",
+          "score": 4.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_032ad4d21a4f402f9a1bab7ef9b3f5b8",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.known_skus",
+          "score": 4.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 2.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_fc1d804b89804f208893c5bec415908a",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.__init__",
+          "score": 2.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_cdbdd2b9ee8848a288abf17a9bcc1514",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_returns_the_sum",
+          "score": 2.0,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_0bf939b274134231945904f0a719ecc7",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_returns_the_quotient",
+          "score": 2.0,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.9721212198129313,
+        "latency_ms": 0.04329199146013707
+      },
+      "latency_ms": 0.04329199146013707,
+      "error": null
+    },
+    {
+      "id": "ecr_75659509e4f64e0680466000ea165ca2",
+      "case_id": "eca_cd29f43d788f4f6cb7cdd324e02bc1d4",
+      "case_key": "ret-004",
+      "split": "test",
+      "strategy": "bm25",
+      "predictions": [
+        {
+          "symbol_id": "sym_87eab0b6ceb94ad79478fac1960f0206",
+          "path": "app/api.py",
+          "qualified_name": "handle_sum",
+          "score": 5.556755,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 3.753889,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_a6f3f1e44f1c47d4a4765da9d2e7daab",
+          "path": "app/api.py",
+          "qualified_name": "handle_divide",
+          "score": 3.356012,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 3.124078,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_cdbdd2b9ee8848a288abf17a9bcc1514",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_returns_the_sum",
+          "score": 2.103058,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_ff3b85d8e5cb47f2a197a310c39109af",
+          "path": "app/calculator.py",
+          "qualified_name": "add",
+          "score": 1.950957,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_503c19fa535347eeb6b1c4f4f67dd3c6",
+          "path": "app/calculator.py",
+          "qualified_name": "mean",
+          "score": 1.885501,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 1.352368,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.747098,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.3333333333333333,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.8590229523269858,
+        "latency_ms": 0.11100000119768083
+      },
+      "latency_ms": 0.11100000119768083,
+      "error": null
+    },
+    {
+      "id": "ecr_3a047a79313a493287938def531da4a9",
+      "case_id": "eca_cd29f43d788f4f6cb7cdd324e02bc1d4",
+      "case_key": "ret-004",
+      "split": "test",
+      "strategy": "hybrid",
+      "predictions": [
+        {
+          "symbol_id": "sym_87eab0b6ceb94ad79478fac1960f0206",
+          "path": "app/api.py",
+          "qualified_name": "handle_sum",
+          "score": 0.032787,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.032258,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 0.031498,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_ff3b85d8e5cb47f2a197a310c39109af",
+          "path": "app/calculator.py",
+          "qualified_name": "add",
+          "score": 0.030536,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_cdbdd2b9ee8848a288abf17a9bcc1514",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_returns_the_sum",
+          "score": 0.03031,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_503c19fa535347eeb6b1c4f4f67dd3c6",
+          "path": "app/calculator.py",
+          "qualified_name": "mean",
+          "score": 0.030077,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.029199,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.028778,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.014085,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.6666666666666666,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.882808018370203,
+        "latency_ms": 0.8064580033533275
+      },
+      "latency_ms": 0.8064580033533275,
+      "error": null
+    },
+    {
+      "id": "ecr_44b27e9b0163484c98916e7dc228e01a",
+      "case_id": "eca_cd29f43d788f4f6cb7cdd324e02bc1d4",
+      "case_key": "ret-004",
+      "split": "test",
+      "strategy": "hybrid_rerank",
+      "predictions": [
+        {
+          "symbol_id": "sym_87eab0b6ceb94ad79478fac1960f0206",
+          "path": "app/api.py",
+          "qualified_name": "handle_sum",
+          "score": 0.296393,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.217129,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 0.180749,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_cdbdd2b9ee8848a288abf17a9bcc1514",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_returns_the_sum",
+          "score": 0.140155,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_ff3b85d8e5cb47f2a197a310c39109af",
+          "path": "app/calculator.py",
+          "qualified_name": "add",
+          "score": 0.125268,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_503c19fa535347eeb6b1c4f4f67dd3c6",
+          "path": "app/calculator.py",
+          "qualified_name": "mean",
+          "score": 0.125038,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.100599,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.084389,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.023042,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.6666666666666666,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.8688109777822237,
+        "latency_ms": 0.938375000259839
+      },
+      "latency_ms": 0.938375000259839,
+      "error": null
+    },
+    {
+      "id": "ecr_3d61896fdbc4453896da96a6c9ff8e3d",
+      "case_id": "eca_cd29f43d788f4f6cb7cdd324e02bc1d4",
+      "case_key": "ret-004",
+      "split": "test",
+      "strategy": "semantic",
+      "predictions": [
+        {
+          "symbol_id": "sym_87eab0b6ceb94ad79478fac1960f0206",
+          "path": "app/api.py",
+          "qualified_name": "handle_sum",
+          "score": 0.390854,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.268968,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 0.236647,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_a6f3f1e44f1c47d4a4765da9d2e7daab",
+          "path": "app/api.py",
+          "qualified_name": "handle_divide",
+          "score": 0.132421,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_ff3b85d8e5cb47f2a197a310c39109af",
+          "path": "app/calculator.py",
+          "qualified_name": "add",
+          "score": 0.122941,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_503c19fa535347eeb6b1c4f4f67dd3c6",
+          "path": "app/calculator.py",
+          "qualified_name": "mean",
+          "score": 0.108479,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_cdbdd2b9ee8848a288abf17a9bcc1514",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_returns_the_sum",
+          "score": 0.105995,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_f1751e18edef43299169d69e4902738a",
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "score": 0.094087,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.08299,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.073501,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.6666666666666666,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.8688109777822237,
+        "latency_ms": 0.677708987495862
+      },
+      "latency_ms": 0.677708987495862,
+      "error": null
+    },
+    {
+      "id": "ecr_87bb2b66d72e47dcad4514ccbae87952",
+      "case_id": "eca_cd29f43d788f4f6cb7cdd324e02bc1d4",
+      "case_key": "ret-004",
+      "split": "test",
+      "strategy": "static",
+      "predictions": [
+        {
+          "symbol_id": "sym_87eab0b6ceb94ad79478fac1960f0206",
+          "path": "app/api.py",
+          "qualified_name": "handle_sum",
+          "score": 4.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_cdbdd2b9ee8848a288abf17a9bcc1514",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_returns_the_sum",
+          "score": 4.0,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_a6f3f1e44f1c47d4a4765da9d2e7daab",
+          "path": "app/api.py",
+          "qualified_name": "handle_divide",
+          "score": 2.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 2.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0bf939b274134231945904f0a719ecc7",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_returns_the_quotient",
+          "score": 2.0,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.3333333333333333,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.7452525342261976,
+        "latency_ms": 0.039292004657909274
+      },
+      "latency_ms": 0.039292004657909274,
+      "error": null
+    },
+    {
+      "id": "ecr_407e101245264841ab70834151947bbb",
+      "case_id": "eca_ce6fe9c77068485dbbadedbd3083f3f6",
+      "case_key": "ret-005",
+      "split": "test",
+      "strategy": "bm25",
+      "predictions": [
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 12.51275,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_503c19fa535347eeb6b1c4f4f67dd3c6",
+          "path": "app/calculator.py",
+          "qualified_name": "mean",
+          "score": 12.314203,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_ff3b85d8e5cb47f2a197a310c39109af",
+          "path": "app/calculator.py",
+          "qualified_name": "add",
+          "score": 7.88531,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 1.997668,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 0.5,
+        "ndcg@10": 0.6309297535714575,
+        "latency_ms": 0.11212499521207064
+      },
+      "latency_ms": 0.11212499521207064,
+      "error": null
+    },
+    {
+      "id": "ecr_20102362251240f1bc1ce06034c8925e",
+      "case_id": "eca_ce6fe9c77068485dbbadedbd3083f3f6",
+      "case_key": "ret-005",
+      "split": "test",
+      "strategy": "hybrid",
+      "predictions": [
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.032522,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_503c19fa535347eeb6b1c4f4f67dd3c6",
+          "path": "app/calculator.py",
+          "qualified_name": "mean",
+          "score": 0.032522,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_ff3b85d8e5cb47f2a197a310c39109af",
+          "path": "app/calculator.py",
+          "qualified_name": "add",
+          "score": 0.031746,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.015625,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 0.5,
+        "ndcg@10": 0.6309297535714575,
+        "latency_ms": 0.795917003415525
+      },
+      "latency_ms": 0.795917003415525,
+      "error": null
+    },
+    {
+      "id": "ecr_13079e4d3535477c900c9f1c6fe483ee",
+      "case_id": "eca_ce6fe9c77068485dbbadedbd3083f3f6",
+      "case_key": "ret-005",
+      "split": "test",
+      "strategy": "hybrid_rerank",
+      "predictions": [
+        {
+          "symbol_id": "sym_503c19fa535347eeb6b1c4f4f67dd3c6",
+          "path": "app/calculator.py",
+          "qualified_name": "mean",
+          "score": 0.346261,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.264761,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_ff3b85d8e5cb47f2a197a310c39109af",
+          "path": "app/calculator.py",
+          "qualified_name": "add",
+          "score": 0.108373,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.060312,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "latency_ms": 0.8378330094274133
+      },
+      "latency_ms": 0.8378330094274133,
+      "error": null
+    },
+    {
+      "id": "ecr_cf49ec26dd5142c7be9efb2328b91ca7",
+      "case_id": "eca_ce6fe9c77068485dbbadedbd3083f3f6",
+      "case_key": "ret-005",
+      "split": "test",
+      "strategy": "semantic",
+      "predictions": [
+        {
+          "symbol_id": "sym_503c19fa535347eeb6b1c4f4f67dd3c6",
+          "path": "app/calculator.py",
+          "qualified_name": "mean",
+          "score": 0.372116,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.212503,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_ff3b85d8e5cb47f2a197a310c39109af",
+          "path": "app/calculator.py",
+          "qualified_name": "add",
+          "score": 0.14818,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "latency_ms": 0.6732920010108501
+      },
+      "latency_ms": 0.6732920010108501,
+      "error": null
+    },
+    {
+      "id": "ecr_e5ef32bfb10c45c5883546248a560db3",
+      "case_id": "eca_ce6fe9c77068485dbbadedbd3083f3f6",
+      "case_key": "ret-005",
+      "split": "test",
+      "strategy": "static",
+      "predictions": [
+        {
+          "symbol_id": "sym_503c19fa535347eeb6b1c4f4f67dd3c6",
+          "path": "app/calculator.py",
+          "qualified_name": "mean",
+          "score": 3.0,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "latency_ms": 0.03337500675115734
+      },
+      "latency_ms": 0.03337500675115734,
+      "error": null
+    },
+    {
+      "id": "ecr_3ce22aa29a234144b5da004a81cd9804",
+      "case_id": "eca_3f96bb5d8dff4665a3f3ad913136ae46",
+      "case_key": "ret-006",
+      "split": "test",
+      "strategy": "bm25",
+      "predictions": [
+        {
+          "symbol_id": "sym_032ad4d21a4f402f9a1bab7ef9b3f5b8",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.known_skus",
+          "score": 10.018352,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 8.954324,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 7.897489,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0193df52287c4999a5ae6596964017d4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.lookup",
+          "score": 5.649984,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 5.592199,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 3.997179,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_fc1d804b89804f208893c5bec415908a",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.__init__",
+          "score": 2.427138,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_868af0bf1477458dbdc323b051561bd0",
+          "path": "app/__init__.py",
+          "qualified_name": "__init__",
+          "score": 1.672362,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_f1751e18edef43299169d69e4902738a",
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "score": 1.591463,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 1.265009,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "latency_ms": 0.1226659951498732
+      },
+      "latency_ms": 0.1226659951498732,
+      "error": null
+    },
+    {
+      "id": "ecr_a841188b3f934ff3bce8a34635efbc5d",
+      "case_id": "eca_3f96bb5d8dff4665a3f3ad913136ae46",
+      "case_key": "ret-006",
+      "split": "test",
+      "strategy": "hybrid",
+      "predictions": [
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 0.032522,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_032ad4d21a4f402f9a1bab7ef9b3f5b8",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.known_skus",
+          "score": 0.032266,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.032002,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 0.03101,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.030303,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_f1751e18edef43299169d69e4902738a",
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "score": 0.029877,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.029211,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_868af0bf1477458dbdc323b051561bd0",
+          "path": "app/__init__.py",
+          "qualified_name": "__init__",
+          "score": 0.028595,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0bf939b274134231945904f0a719ecc7",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_returns_the_quotient",
+          "score": 0.014493,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_2486cfe0cd1a4665a5d6bb17d1636ec9",
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "score": 0.014286,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.8339912323981488,
+        "latency_ms": 0.834165999549441
+      },
+      "latency_ms": 0.834165999549441,
+      "error": null
+    },
+    {
+      "id": "ecr_ce7b2152dee946049fee94c06eb27eec",
+      "case_id": "eca_3f96bb5d8dff4665a3f3ad913136ae46",
+      "case_key": "ret-006",
+      "split": "test",
+      "strategy": "hybrid_rerank",
+      "predictions": [
+        {
+          "symbol_id": "sym_032ad4d21a4f402f9a1bab7ef9b3f5b8",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.known_skus",
+          "score": 0.267133,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 0.255261,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.243001,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 0.178505,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.154152,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_f1751e18edef43299169d69e4902738a",
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "score": 0.089939,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.065606,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_868af0bf1477458dbdc323b051561bd0",
+          "path": "app/__init__.py",
+          "qualified_name": "__init__",
+          "score": 0.065297,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_2486cfe0cd1a4665a5d6bb17d1636ec9",
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "score": 0.047143,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0bf939b274134231945904f0a719ecc7",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_returns_the_quotient",
+          "score": 0.007246,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "latency_ms": 0.9732089965837076
+      },
+      "latency_ms": 0.9732089965837076,
+      "error": null
+    },
+    {
+      "id": "ecr_f3885c28df7c431992191c381c1c3602",
+      "case_id": "eca_3f96bb5d8dff4665a3f3ad913136ae46",
+      "case_key": "ret-006",
+      "split": "test",
+      "strategy": "semantic",
+      "predictions": [
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 0.373098,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.337903,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_032ad4d21a4f402f9a1bab7ef9b3f5b8",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.known_skus",
+          "score": 0.290152,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 0.259122,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_f1751e18edef43299169d69e4902738a",
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "score": 0.17016,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.137586,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.112353,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0193df52287c4999a5ae6596964017d4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.lookup",
+          "score": 0.104651,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0bf939b274134231945904f0a719ecc7",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_returns_the_quotient",
+          "score": 0.072905,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_2486cfe0cd1a4665a5d6bb17d1636ec9",
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "score": 0.061022,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.7309292742059024,
+        "latency_ms": 0.6825829914305359
+      },
+      "latency_ms": 0.6825829914305359,
+      "error": null
+    },
+    {
+      "id": "ecr_99fa63ec99f44f00933b62b5a53203d6",
+      "case_id": "eca_3f96bb5d8dff4665a3f3ad913136ae46",
+      "case_key": "ret-006",
+      "split": "test",
+      "strategy": "static",
+      "predictions": [
+        {
+          "symbol_id": "sym_032ad4d21a4f402f9a1bab7ef9b3f5b8",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.known_skus",
+          "score": 6.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 4.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_fc1d804b89804f208893c5bec415908a",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.__init__",
+          "score": 4.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0193df52287c4999a5ae6596964017d4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.lookup",
+          "score": 4.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_cdbdd2b9ee8848a288abf17a9bcc1514",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_returns_the_sum",
+          "score": 2.0,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_0bf939b274134231945904f0a719ecc7",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_returns_the_quotient",
+          "score": 2.0,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "latency_ms": 0.04795799031853676
+      },
+      "latency_ms": 0.04795799031853676,
+      "error": null
+    },
+    {
+      "id": "ecr_9cd73f058916446e997884b1711bf01b",
+      "case_id": "eca_4a614962801d458ab0a009015230c71c",
+      "case_key": "ret-007",
+      "split": "test",
+      "strategy": "bm25",
+      "predictions": [
+        {
+          "symbol_id": "sym_14a1f05714794d8883c6f93647caa168",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_is_commutative",
+          "score": 9.235506,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 5.666869,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_67b42731e1334dfb8e4de4b64252bf7f",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_by_zero_is_undefined",
+          "score": 4.764197,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_ff3b85d8e5cb47f2a197a310c39109af",
+          "path": "app/calculator.py",
+          "qualified_name": "add",
+          "score": 3.942655,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_cdbdd2b9ee8848a288abf17a9bcc1514",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_returns_the_sum",
+          "score": 2.921786,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_0bf939b274134231945904f0a719ecc7",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_returns_the_quotient",
+          "score": 2.921786,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 2.728427,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_2486cfe0cd1a4665a5d6bb17d1636ec9",
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "score": 1.795157,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_868af0bf1477458dbdc323b051561bd0",
+          "path": "app/__init__.py",
+          "qualified_name": "__init__",
+          "score": 1.595538,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 1.56772,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.9737576937588317,
+        "latency_ms": 0.11654199624899775
+      },
+      "latency_ms": 0.11654199624899775,
+      "error": null
+    },
+    {
+      "id": "ecr_c5928b23fc864c0d85a1e47bd994ff34",
+      "case_id": "eca_4a614962801d458ab0a009015230c71c",
+      "case_key": "ret-007",
+      "split": "test",
+      "strategy": "hybrid",
+      "predictions": [
+        {
+          "symbol_id": "sym_14a1f05714794d8883c6f93647caa168",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_is_commutative",
+          "score": 0.032787,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.031754,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_67b42731e1334dfb8e4de4b64252bf7f",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_by_zero_is_undefined",
+          "score": 0.031746,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_ff3b85d8e5cb47f2a197a310c39109af",
+          "path": "app/calculator.py",
+          "qualified_name": "add",
+          "score": 0.030331,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.03031,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_868af0bf1477458dbdc323b051561bd0",
+          "path": "app/__init__.py",
+          "qualified_name": "__init__",
+          "score": 0.029418,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.028778,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_2486cfe0cd1a4665a5d6bb17d1636ec9",
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "score": 0.028595,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 0.014286,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_87eab0b6ceb94ad79478fac1960f0206",
+          "path": "app/api.py",
+          "qualified_name": "handle_sum",
+          "score": 0.013699,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.9737576937588317,
+        "latency_ms": 0.8229159866459668
+      },
+      "latency_ms": 0.8229159866459668,
+      "error": null
+    },
+    {
+      "id": "ecr_1fae92c3585949acb110d0ef3ba8d191",
+      "case_id": "eca_4a614962801d458ab0a009015230c71c",
+      "case_key": "ret-007",
+      "split": "test",
+      "strategy": "hybrid_rerank",
+      "predictions": [
+        {
+          "symbol_id": "sym_14a1f05714794d8883c6f93647caa168",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_is_commutative",
+          "score": 0.242727,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.21821,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_67b42731e1334dfb8e4de4b64252bf7f",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_by_zero_is_undefined",
+          "score": 0.189206,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.101155,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_ff3b85d8e5cb47f2a197a310c39109af",
+          "path": "app/calculator.py",
+          "qualified_name": "add",
+          "score": 0.090165,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_2486cfe0cd1a4665a5d6bb17d1636ec9",
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "score": 0.089297,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_868af0bf1477458dbdc323b051561bd0",
+          "path": "app/__init__.py",
+          "qualified_name": "__init__",
+          "score": 0.065709,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.065389,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_87eab0b6ceb94ad79478fac1960f0206",
+          "path": "app/api.py",
+          "qualified_name": "handle_sum",
+          "score": 0.046849,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 0.035143,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.9680147827042069,
+        "latency_ms": 0.9302919934270903
+      },
+      "latency_ms": 0.9302919934270903,
+      "error": null
+    },
+    {
+      "id": "ecr_4a2c7a166d7d4a429e02b3118cef20b1",
+      "case_id": "eca_4a614962801d458ab0a009015230c71c",
+      "case_key": "ret-007",
+      "split": "test",
+      "strategy": "semantic",
+      "predictions": [
+        {
+          "symbol_id": "sym_14a1f05714794d8883c6f93647caa168",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_is_commutative",
+          "score": 0.338231,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_cdbdd2b9ee8848a288abf17a9bcc1514",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_returns_the_sum",
+          "score": 0.130782,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_67b42731e1334dfb8e4de4b64252bf7f",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_by_zero_is_undefined",
+          "score": 0.129751,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.128295,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.126293,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0bf939b274134231945904f0a719ecc7",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_returns_the_quotient",
+          "score": 0.090364,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_868af0bf1477458dbdc323b051561bd0",
+          "path": "app/__init__.py",
+          "qualified_name": "__init__",
+          "score": 0.08599,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_ff3b85d8e5cb47f2a197a310c39109af",
+          "path": "app/calculator.py",
+          "qualified_name": "add",
+          "score": 0.082887,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.079856,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 0.070892,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.5,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.9586597063564786,
+        "latency_ms": 0.6908340001245961
+      },
+      "latency_ms": 0.6908340001245961,
+      "error": null
+    },
+    {
+      "id": "ecr_d3da55b56c204cb69fc23315bc1bc30a",
+      "case_id": "eca_4a614962801d458ab0a009015230c71c",
+      "case_key": "ret-007",
+      "split": "test",
+      "strategy": "static",
+      "predictions": [
+        {
+          "symbol_id": "sym_14a1f05714794d8883c6f93647caa168",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_is_commutative",
+          "score": 4.0,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 2.0,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_cdbdd2b9ee8848a288abf17a9bcc1514",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_returns_the_sum",
+          "score": 2.0,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_0bf939b274134231945904f0a719ecc7",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_returns_the_quotient",
+          "score": 2.0,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_67b42731e1334dfb8e4de4b64252bf7f",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_by_zero_is_undefined",
+          "score": 2.0,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.5,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.9173194127129571,
+        "latency_ms": 0.04562499816529453
+      },
+      "latency_ms": 0.04562499816529453,
+      "error": null
+    },
+    {
+      "id": "ecr_32ad2ba817dd479b99629066be5e3a2f",
+      "case_id": "eca_08bf3ec7e1274529afaeb5a908520f53",
+      "case_key": "ret-008",
+      "split": "test",
+      "strategy": "bm25",
+      "predictions": [
+        {
+          "symbol_id": "sym_8fd35fb95a574fabb2e9bede469d332f",
+          "path": "app/api.py",
+          "qualified_name": "Request",
+          "score": 7.670585,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 6.309362,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_a6f3f1e44f1c47d4a4765da9d2e7daab",
+          "path": "app/api.py",
+          "qualified_name": "handle_divide",
+          "score": 4.819328,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_87eab0b6ceb94ad79478fac1960f0206",
+          "path": "app/api.py",
+          "qualified_name": "handle_sum",
+          "score": 4.717703,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 4.31512,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 1.324955,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.9737576937588317,
+        "latency_ms": 0.10916701285168529
+      },
+      "latency_ms": 0.10916701285168529,
+      "error": null
+    },
+    {
+      "id": "ecr_6486ab61ba5040aaa58179b68f6bd06a",
+      "case_id": "eca_08bf3ec7e1274529afaeb5a908520f53",
+      "case_key": "ret-008",
+      "split": "test",
+      "strategy": "hybrid",
+      "predictions": [
+        {
+          "symbol_id": "sym_8fd35fb95a574fabb2e9bede469d332f",
+          "path": "app/api.py",
+          "qualified_name": "Request",
+          "score": 0.032787,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.032002,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_a6f3f1e44f1c47d4a4765da9d2e7daab",
+          "path": "app/api.py",
+          "qualified_name": "handle_divide",
+          "score": 0.032002,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.029437,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.015385,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_032ad4d21a4f402f9a1bab7ef9b3f5b8",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.known_skus",
+          "score": 0.014925,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_868af0bf1477458dbdc323b051561bd0",
+          "path": "app/__init__.py",
+          "qualified_name": "__init__",
+          "score": 0.014706,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 0.014493,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.5,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.9173194127129571,
+        "latency_ms": 0.8094999939203262
+      },
+      "latency_ms": 0.8094999939203262,
+      "error": null
+    },
+    {
+      "id": "ecr_dd8b3229e5e5447aa0fc7817100d73b8",
+      "case_id": "eca_08bf3ec7e1274529afaeb5a908520f53",
+      "case_key": "ret-008",
+      "split": "test",
+      "strategy": "hybrid_rerank",
+      "predictions": [
+        {
+          "symbol_id": "sym_8fd35fb95a574fabb2e9bede469d332f",
+          "path": "app/api.py",
+          "qualified_name": "Request",
+          "score": 0.325393,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.203001,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_a6f3f1e44f1c47d4a4765da9d2e7daab",
+          "path": "app/api.py",
+          "qualified_name": "handle_divide",
+          "score": 0.140001,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.056719,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_032ad4d21a4f402f9a1bab7ef9b3f5b8",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.known_skus",
+          "score": 0.047463,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 0.035246,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.023692,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_868af0bf1477458dbdc323b051561bd0",
+          "path": "app/__init__.py",
+          "qualified_name": "__init__",
+          "score": 0.023353,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.5,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.9173194127129571,
+        "latency_ms": 0.904499989701435
+      },
+      "latency_ms": 0.904499989701435,
+      "error": null
+    },
+    {
+      "id": "ecr_8478fa994482493a9c9581cfd3924be6",
+      "case_id": "eca_08bf3ec7e1274529afaeb5a908520f53",
+      "case_key": "ret-008",
+      "split": "test",
+      "strategy": "semantic",
+      "predictions": [
+        {
+          "symbol_id": "sym_8fd35fb95a574fabb2e9bede469d332f",
+          "path": "app/api.py",
+          "qualified_name": "Request",
+          "score": 0.354027,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_a6f3f1e44f1c47d4a4765da9d2e7daab",
+          "path": "app/api.py",
+          "qualified_name": "handle_divide",
+          "score": 0.185503,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.143263,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 0.13704,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.108412,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_87eab0b6ceb94ad79478fac1960f0206",
+          "path": "app/api.py",
+          "qualified_name": "handle_sum",
+          "score": 0.107519,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_032ad4d21a4f402f9a1bab7ef9b3f5b8",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.known_skus",
+          "score": 0.064155,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_868af0bf1477458dbdc323b051561bd0",
+          "path": "app/__init__.py",
+          "qualified_name": "__init__",
+          "score": 0.033726,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 0.029101,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.015913,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.5,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.9639988080961093,
+        "latency_ms": 0.676124996971339
+      },
+      "latency_ms": 0.676124996971339,
+      "error": null
+    },
+    {
+      "id": "ecr_6a62725d4efa44a680c419947a315b8e",
+      "case_id": "eca_08bf3ec7e1274529afaeb5a908520f53",
+      "case_key": "ret-008",
+      "split": "test",
+      "strategy": "static",
+      "predictions": [
+        {
+          "symbol_id": "sym_8fd35fb95a574fabb2e9bede469d332f",
+          "path": "app/api.py",
+          "qualified_name": "Request",
+          "score": 3.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_87eab0b6ceb94ad79478fac1960f0206",
+          "path": "app/api.py",
+          "qualified_name": "handle_sum",
+          "score": 2.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_a6f3f1e44f1c47d4a4765da9d2e7daab",
+          "path": "app/api.py",
+          "qualified_name": "handle_divide",
+          "score": 2.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 2.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_cdbdd2b9ee8848a288abf17a9bcc1514",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_returns_the_sum",
+          "score": 2.0,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_0bf939b274134231945904f0a719ecc7",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_returns_the_quotient",
+          "score": 2.0,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "latency_ms": 0.04858300962951034
+      },
+      "latency_ms": 0.04858300962951034,
+      "error": null
+    },
+    {
+      "id": "ecr_6a728bf241f64aa6a9eefbc1f0443476",
+      "case_id": "eca_88de7bb245af45a390ba96e5f47abc8e",
+      "case_key": "ret-009",
+      "split": "test",
+      "strategy": "bm25",
+      "predictions": [
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 2.720305,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_67b42731e1334dfb8e4de4b64252bf7f",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_by_zero_is_undefined",
+          "score": 2.217209,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 1.509798,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.0,
+        "mrr@10": 0.0,
+        "ndcg@10": 0.0,
+        "latency_ms": 0.10387499060016125
+      },
+      "latency_ms": 0.10387499060016125,
+      "error": null
+    },
+    {
+      "id": "ecr_f341193581cc48fa9fa579fbb89fd51b",
+      "case_id": "eca_88de7bb245af45a390ba96e5f47abc8e",
+      "case_key": "ret-009",
+      "split": "test",
+      "strategy": "hybrid",
+      "predictions": [
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.032522,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_8fd35fb95a574fabb2e9bede469d332f",
+          "path": "app/api.py",
+          "qualified_name": "Request",
+          "score": 0.016393,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_67b42731e1334dfb8e4de4b64252bf7f",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_by_zero_is_undefined",
+          "score": 0.016129,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_2486cfe0cd1a4665a5d6bb17d1636ec9",
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "score": 0.015873,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.015873,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_032ad4d21a4f402f9a1bab7ef9b3f5b8",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.known_skus",
+          "score": 0.015625,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 0.015385,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.6666666666666666,
+        "mrr@10": 0.5,
+        "ndcg@10": 0.20472719811083948,
+        "latency_ms": 0.7749170035822317
+      },
+      "latency_ms": 0.7749170035822317,
+      "error": null
+    },
+    {
+      "id": "ecr_a1a52682165249638245bb8d070e1e1b",
+      "case_id": "eca_88de7bb245af45a390ba96e5f47abc8e",
+      "case_key": "ret-009",
+      "split": "test",
+      "strategy": "hybrid_rerank",
+      "predictions": [
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.102261,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_67b42731e1334dfb8e4de4b64252bf7f",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_by_zero_is_undefined",
+          "score": 0.078065,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.077937,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_2486cfe0cd1a4665a5d6bb17d1636ec9",
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "score": 0.047937,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_032ad4d21a4f402f9a1bab7ef9b3f5b8",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.known_skus",
+          "score": 0.047813,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 0.047692,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_8fd35fb95a574fabb2e9bede469d332f",
+          "path": "app/api.py",
+          "qualified_name": "Request",
+          "score": 0.036197,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.3333333333333333,
+        "mrr@10": 0.25,
+        "ndcg@10": 0.17304370005953854,
+        "latency_ms": 0.8668329974170774
+      },
+      "latency_ms": 0.8668329974170774,
+      "error": null
+    },
+    {
+      "id": "ecr_6c831b3603d5490f8679c24cdaa5ede5",
+      "case_id": "eca_88de7bb245af45a390ba96e5f47abc8e",
+      "case_key": "ret-009",
+      "split": "test",
+      "strategy": "semantic",
+      "predictions": [
+        {
+          "symbol_id": "sym_8fd35fb95a574fabb2e9bede469d332f",
+          "path": "app/api.py",
+          "qualified_name": "Request",
+          "score": 0.08343,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.061718,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_2486cfe0cd1a4665a5d6bb17d1636ec9",
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "score": 0.053457,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_032ad4d21a4f402f9a1bab7ef9b3f5b8",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.known_skus",
+          "score": 0.035237,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 0.016622,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.6666666666666666,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.2661616193664992,
+        "latency_ms": 0.6648750131716952
+      },
+      "latency_ms": 0.6648750131716952,
+      "error": null
+    },
+    {
+      "id": "ecr_6be8159e2344402aa3b5a88d7168784f",
+      "case_id": "eca_88de7bb245af45a390ba96e5f47abc8e",
+      "case_key": "ret-009",
+      "split": "test",
+      "strategy": "static",
+      "predictions": [],
+      "metrics": {
+        "recall@5": 0.0,
+        "mrr@10": 0.0,
+        "ndcg@10": 0.0,
+        "latency_ms": 0.035416000173427165
+      },
+      "latency_ms": 0.035416000173427165,
+      "error": null
+    },
+    {
+      "id": "ecr_49e5804cf51e4e99ab17695cd4786cd9",
+      "case_id": "eca_089e6ac3fb6d4a50befb80e4479bd093",
+      "case_key": "ret-010",
+      "split": "test",
+      "strategy": "bm25",
+      "predictions": [
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 6.911996,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_67b42731e1334dfb8e4de4b64252bf7f",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_by_zero_is_undefined",
+          "score": 6.187043,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_14a1f05714794d8883c6f93647caa168",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_is_commutative",
+          "score": 2.093267,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_2486cfe0cd1a4665a5d6bb17d1636ec9",
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "score": 1.795157,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_868af0bf1477458dbdc323b051561bd0",
+          "path": "app/__init__.py",
+          "qualified_name": "__init__",
+          "score": 1.595538,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 1.56772,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.903188,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 0.5,
+        "ndcg@10": 0.5518544320968081,
+        "latency_ms": 0.12366700684651732
+      },
+      "latency_ms": 0.12366700684651732,
+      "error": null
+    },
+    {
+      "id": "ecr_6bc90e62f3b64a508d566eed62802d4a",
+      "case_id": "eca_089e6ac3fb6d4a50befb80e4479bd093",
+      "case_key": "ret-010",
+      "split": "test",
+      "strategy": "hybrid",
+      "predictions": [
+        {
+          "symbol_id": "sym_67b42731e1334dfb8e4de4b64252bf7f",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_by_zero_is_undefined",
+          "score": 0.032522,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.032522,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_14a1f05714794d8883c6f93647caa168",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_is_commutative",
+          "score": 0.031746,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_868af0bf1477458dbdc323b051561bd0",
+          "path": "app/__init__.py",
+          "qualified_name": "__init__",
+          "score": 0.03101,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_2486cfe0cd1a4665a5d6bb17d1636ec9",
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "score": 0.03101,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.030077,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.015152,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_503c19fa535347eeb6b1c4f4f67dd3c6",
+          "path": "app/calculator.py",
+          "qualified_name": "mean",
+          "score": 0.014925,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.641864940605065,
+        "latency_ms": 0.7952500018291175
+      },
+      "latency_ms": 0.7952500018291175,
+      "error": null
+    },
+    {
+      "id": "ecr_d695fe9ed09443b0b32acffe1ab34080",
+      "case_id": "eca_089e6ac3fb6d4a50befb80e4479bd093",
+      "case_key": "ret-010",
+      "split": "test",
+      "strategy": "hybrid_rerank",
+      "predictions": [
+        {
+          "symbol_id": "sym_67b42731e1334dfb8e4de4b64252bf7f",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_by_zero_is_undefined",
+          "score": 0.141261,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.121261,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_14a1f05714794d8883c6f93647caa168",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_is_commutative",
+          "score": 0.105873,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_2486cfe0cd1a4665a5d6bb17d1636ec9",
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "score": 0.090505,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_868af0bf1477458dbdc323b051561bd0",
+          "path": "app/__init__.py",
+          "qualified_name": "__init__",
+          "score": 0.066505,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.066038,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.058576,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_503c19fa535347eeb6b1c4f4f67dd3c6",
+          "path": "app/calculator.py",
+          "qualified_name": "mean",
+          "score": 0.047463,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.6763610077981964,
+        "latency_ms": 0.8926250011427328
+      },
+      "latency_ms": 0.8926250011427328,
+      "error": null
+    },
+    {
+      "id": "ecr_b2ad185880214a68a250d821d1ab069b",
+      "case_id": "eca_089e6ac3fb6d4a50befb80e4479bd093",
+      "case_key": "ret-010",
+      "split": "test",
+      "strategy": "semantic",
+      "predictions": [
+        {
+          "symbol_id": "sym_67b42731e1334dfb8e4de4b64252bf7f",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_by_zero_is_undefined",
+          "score": 0.16397,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.127897,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_14a1f05714794d8883c6f93647caa168",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_is_commutative",
+          "score": 0.111384,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_868af0bf1477458dbdc323b051561bd0",
+          "path": "app/__init__.py",
+          "qualified_name": "__init__",
+          "score": 0.067973,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_2486cfe0cd1a4665a5d6bb17d1636ec9",
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "score": 0.061022,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.046894,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_503c19fa535347eeb6b1c4f4f67dd3c6",
+          "path": "app/calculator.py",
+          "qualified_name": "mean",
+          "score": 0.043196,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0bf939b274134231945904f0a719ecc7",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_returns_the_quotient",
+          "score": 0.043059,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_cdbdd2b9ee8848a288abf17a9bcc1514",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_returns_the_sum",
+          "score": 0.042207,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.641864940605065,
+        "latency_ms": 0.6834170053480193
+      },
+      "latency_ms": 0.6834170053480193,
+      "error": null
+    },
+    {
+      "id": "ecr_4802deb2357047faba637b64654f007a",
+      "case_id": "eca_089e6ac3fb6d4a50befb80e4479bd093",
+      "case_key": "ret-010",
+      "split": "test",
+      "strategy": "static",
+      "predictions": [
+        {
+          "symbol_id": "sym_cdbdd2b9ee8848a288abf17a9bcc1514",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_returns_the_sum",
+          "score": 2.0,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_0bf939b274134231945904f0a719ecc7",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_returns_the_quotient",
+          "score": 2.0,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_67b42731e1334dfb8e4de4b64252bf7f",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_by_zero_is_undefined",
+          "score": 2.0,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.5,
+        "mrr@10": 0.3333333333333333,
+        "ndcg@10": 0.16867598635520825,
+        "latency_ms": 0.04100000660400838
+      },
+      "latency_ms": 0.04100000660400838,
+      "error": null
+    },
+    {
+      "id": "ecr_66793ba61dd44b2c9d9afb7a8fd97cf9",
+      "case_id": "eca_c214f780a8744da4a0f6648bf0dfdf82",
+      "case_key": "ret-011",
+      "split": "test",
+      "strategy": "bm25",
+      "predictions": [
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 6.494981,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 4.760818,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_f1751e18edef43299169d69e4902738a",
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "score": 4.329103,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 3.554771,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0193df52287c4999a5ae6596964017d4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.lookup",
+          "score": 3.057029,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 3.007144,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 2.90246,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_032ad4d21a4f402f9a1bab7ef9b3f5b8",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.known_skus",
+          "score": 2.843634,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_fc1d804b89804f208893c5bec415908a",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.__init__",
+          "score": 2.427138,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 1.506493,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.9508013338940989,
+        "latency_ms": 0.12150000839028507
+      },
+      "latency_ms": 0.12150000839028507,
+      "error": null
+    },
+    {
+      "id": "ecr_f09f35074d10423f958955d8a1bfd11a",
+      "case_id": "eca_c214f780a8744da4a0f6648bf0dfdf82",
+      "case_key": "ret-011",
+      "split": "test",
+      "strategy": "hybrid",
+      "predictions": [
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 0.032787,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.031754,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 0.031754,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_f1751e18edef43299169d69e4902738a",
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "score": 0.031258,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.030798,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.030303,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0193df52287c4999a5ae6596964017d4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.lookup",
+          "score": 0.03009,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_868af0bf1477458dbdc323b051561bd0",
+          "path": "app/__init__.py",
+          "qualified_name": "__init__",
+          "score": 0.014493,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_503c19fa535347eeb6b1c4f4f67dd3c6",
+          "path": "app/calculator.py",
+          "qualified_name": "mean",
+          "score": 0.014286,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.014286,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.9360403422435027,
+        "latency_ms": 0.8020829991437495
+      },
+      "latency_ms": 0.8020829991437495,
+      "error": null
+    },
+    {
+      "id": "ecr_9e983d47ff1b4a77bd5d112f63ce79ac",
+      "case_id": "eca_c214f780a8744da4a0f6648bf0dfdf82",
+      "case_key": "ret-011",
+      "split": "test",
+      "strategy": "hybrid_rerank",
+      "predictions": [
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 0.259893,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_f1751e18edef43299169d69e4902738a",
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "score": 0.194629,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.180377,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0193df52287c4999a5ae6596964017d4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.lookup",
+          "score": 0.161545,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 0.150377,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.137899,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.115152,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.049143,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_503c19fa535347eeb6b1c4f4f67dd3c6",
+          "path": "app/calculator.py",
+          "qualified_name": "mean",
+          "score": 0.047143,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_868af0bf1477458dbdc323b051561bd0",
+          "path": "app/__init__.py",
+          "qualified_name": "__init__",
+          "score": 0.023246,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.9879538239787089,
+        "latency_ms": 0.9201659995596856
+      },
+      "latency_ms": 0.9201659995596856,
+      "error": null
+    },
+    {
+      "id": "ecr_0a897d185c9a4cb3acfe8aa0049ce253",
+      "case_id": "eca_c214f780a8744da4a0f6648bf0dfdf82",
+      "case_key": "ret-011",
+      "split": "test",
+      "strategy": "semantic",
+      "predictions": [
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 0.355441,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 0.223741,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.214253,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.193597,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_f1751e18edef43299169d69e4902738a",
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "score": 0.132799,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_acfa223ce3544caca0278f9a71cf62ef",
+          "path": "app/calculator.py",
+          "qualified_name": "calculator",
+          "score": 0.088906,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_032ad4d21a4f402f9a1bab7ef9b3f5b8",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.known_skus",
+          "score": 0.081787,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0193df52287c4999a5ae6596964017d4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.lookup",
+          "score": 0.076953,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_868af0bf1477458dbdc323b051561bd0",
+          "path": "app/__init__.py",
+          "qualified_name": "__init__",
+          "score": 0.048524,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_503c19fa535347eeb6b1c4f4f67dd3c6",
+          "path": "app/calculator.py",
+          "qualified_name": "mean",
+          "score": 0.043196,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.9359826917490579,
+        "latency_ms": 0.7082079973770306
+      },
+      "latency_ms": 0.7082079973770306,
+      "error": null
+    },
+    {
+      "id": "ecr_4a595bd1c19647be9568acb7f9a83f96",
+      "case_id": "eca_c214f780a8744da4a0f6648bf0dfdf82",
+      "case_key": "ret-011",
+      "split": "test",
+      "strategy": "static",
+      "predictions": [
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 4.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_fc1d804b89804f208893c5bec415908a",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.__init__",
+          "score": 4.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_0193df52287c4999a5ae6596964017d4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.lookup",
+          "score": 4.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_032ad4d21a4f402f9a1bab7ef9b3f5b8",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.known_skus",
+          "score": 4.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 2.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_f1751e18edef43299169d69e4902738a",
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "score": 2.0,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.6666666666666666,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.5085381008114487,
+        "latency_ms": 0.04512500890996307
+      },
+      "latency_ms": 0.04512500890996307,
+      "error": null
+    },
+    {
+      "id": "ecr_2e36dbfb56f34e6f9a72635531abbfcb",
+      "case_id": "eca_60750d49e250482297583740e475285e",
+      "case_key": "ret-012",
+      "split": "test",
+      "strategy": "bm25",
+      "predictions": [
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 5.206806,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_a6f3f1e44f1c47d4a4765da9d2e7daab",
+          "path": "app/api.py",
+          "qualified_name": "handle_divide",
+          "score": 2.578371,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_87eab0b6ceb94ad79478fac1960f0206",
+          "path": "app/api.py",
+          "qualified_name": "handle_sum",
+          "score": 2.544031,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_8fd35fb95a574fabb2e9bede469d332f",
+          "path": "app/api.py",
+          "qualified_name": "Request",
+          "score": 2.464701,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 2.40018,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 1.324955,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.8138602624970117,
+        "latency_ms": 0.10529099381528795
+      },
+      "latency_ms": 0.10529099381528795,
+      "error": null
+    },
+    {
+      "id": "ecr_cac39eaae6474eb4acf3b950fc317fec",
+      "case_id": "eca_60750d49e250482297583740e475285e",
+      "case_key": "ret-012",
+      "split": "test",
+      "strategy": "hybrid",
+      "predictions": [
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.032787,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_a6f3f1e44f1c47d4a4765da9d2e7daab",
+          "path": "app/api.py",
+          "qualified_name": "handle_divide",
+          "score": 0.032258,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_87eab0b6ceb94ad79478fac1960f0206",
+          "path": "app/api.py",
+          "qualified_name": "handle_sum",
+          "score": 0.031746,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.029644,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_032ad4d21a4f402f9a1bab7ef9b3f5b8",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.known_skus",
+          "score": 0.015152,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_f1751e18edef43299169d69e4902738a",
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "score": 0.014925,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.014706,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_868af0bf1477458dbdc323b051561bd0",
+          "path": "app/__init__.py",
+          "qualified_name": "__init__",
+          "score": 0.014286,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 0.014085,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.75,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.6437768397138071,
+        "latency_ms": 0.8002499962458387
+      },
+      "latency_ms": 0.8002499962458387,
+      "error": null
+    },
+    {
+      "id": "ecr_80f64813520147b3a18bdfe46a8c17c8",
+      "case_id": "eca_60750d49e250482297583740e475285e",
+      "case_key": "ret-012",
+      "split": "test",
+      "strategy": "hybrid_rerank",
+      "predictions": [
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.137393,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_a6f3f1e44f1c47d4a4765da9d2e7daab",
+          "path": "app/api.py",
+          "qualified_name": "handle_divide",
+          "score": 0.108629,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_87eab0b6ceb94ad79478fac1960f0206",
+          "path": "app/api.py",
+          "qualified_name": "handle_sum",
+          "score": 0.108373,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.067322,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_032ad4d21a4f402f9a1bab7ef9b3f5b8",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.known_skus",
+          "score": 0.047576,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_f1751e18edef43299169d69e4902738a",
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "score": 0.047463,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_dc662840fe9946d5beaac1e75d91cdf4",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "score": 0.035042,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.023353,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_868af0bf1477458dbdc323b051561bd0",
+          "path": "app/__init__.py",
+          "qualified_name": "__init__",
+          "score": 0.023143,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.75,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.6437768397138071,
+        "latency_ms": 0.8984589949250221
+      },
+      "latency_ms": 0.8984589949250221,
+      "error": null
+    },
+    {
+      "id": "ecr_9a6d99bc23c54a6285b682bdbf71a102",
+      "case_id": "eca_60750d49e250482297583740e475285e",
+      "case_key": "ret-012",
+      "split": "test",
+      "strategy": "semantic",
+      "predictions": [
+        {
+          "symbol_id": "sym_c56e66e92bd742f7bb15ae4c189ce94b",
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "score": 0.158494,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_a6f3f1e44f1c47d4a4765da9d2e7daab",
+          "path": "app/api.py",
+          "qualified_name": "handle_divide",
+          "score": 0.130933,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_87eab0b6ceb94ad79478fac1960f0206",
+          "path": "app/api.py",
+          "qualified_name": "handle_sum",
+          "score": 0.121915,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_8fd35fb95a574fabb2e9bede469d332f",
+          "path": "app/api.py",
+          "qualified_name": "Request",
+          "score": 0.119385,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_b5427092664d41e78badf7413b55ed78",
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "score": 0.096726,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_032ad4d21a4f402f9a1bab7ef9b3f5b8",
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.known_skus",
+          "score": 0.072745,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_f1751e18edef43299169d69e4902738a",
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "score": 0.056421,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_52960182317a45599ef77d150ba2f55c",
+          "path": "app/pricing.py",
+          "qualified_name": "pricing",
+          "score": 0.047895,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_21a62cf4829e496e8b4f928aba754e59",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "tests.test_calculator",
+          "score": 0.044076,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_868af0bf1477458dbdc323b051561bd0",
+          "path": "app/__init__.py",
+          "qualified_name": "__init__",
+          "score": 0.038242,
+          "is_test": false
+        }
+      ],
+      "metrics": {
+        "recall@5": 1.0,
+        "mrr@10": 1.0,
+        "ndcg@10": 0.8138602624970117,
+        "latency_ms": 0.6821249990025535
+      },
+      "latency_ms": 0.6821249990025535,
+      "error": null
+    },
+    {
+      "id": "ecr_ef86f6d3997641aa9a051b1fddaf779a",
+      "case_id": "eca_60750d49e250482297583740e475285e",
+      "case_key": "ret-012",
+      "split": "test",
+      "strategy": "static",
+      "predictions": [
+        {
+          "symbol_id": "sym_8fd35fb95a574fabb2e9bede469d332f",
+          "path": "app/api.py",
+          "qualified_name": "Request",
+          "score": 3.0,
+          "is_test": false
+        },
+        {
+          "symbol_id": "sym_cdbdd2b9ee8848a288abf17a9bcc1514",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_returns_the_sum",
+          "score": 2.0,
+          "is_test": true
+        },
+        {
+          "symbol_id": "sym_0bf939b274134231945904f0a719ecc7",
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_returns_the_quotient",
+          "score": 2.0,
+          "is_test": true
+        }
+      ],
+      "metrics": {
+        "recall@5": 0.0,
+        "mrr@10": 0.0,
+        "ndcg@10": 0.0,
+        "latency_ms": 0.041040999349206686
+      },
+      "latency_ms": 0.041040999349206686,
+      "error": null
+    }
+  ]
+}

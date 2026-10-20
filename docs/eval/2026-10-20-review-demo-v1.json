@@ -1,0 +1,703 @@
+{
+  "id": "evr_205eb93f3fa5474f98dea8c70acfc7b9",
+  "dataset_id": "eds_43224ff13396481894d5a9910b948f75",
+  "dataset_name": "review-demo-v1",
+  "dataset_kind": "review",
+  "kind": "review",
+  "status": "succeeded",
+  "sample_count": 3,
+  "metrics": {
+    "case_count": 3,
+    "categories": {
+      "correctness": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 1,
+        "precision": 1.0,
+        "recall": 0.6666666666666666,
+        "f1": 0.8
+      },
+      "maintainability": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "performance": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "security": {
+        "tp": 4,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "testing": {
+        "tp": 5,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      }
+    },
+    "overall": {
+      "tp": 13,
+      "fp": 0,
+      "fn": 1,
+      "precision": 1.0,
+      "recall": 0.9285714285714286,
+      "f1": 0.962962962962963
+    },
+    "matched_findings": 13,
+    "rule_match_rate": 1.0,
+    "rejected_total": 0,
+    "must_find": {
+      "total": 7,
+      "missed": 1,
+      "recall": 0.8571428571428571
+    },
+    "latency_ms": {
+      "p50": 10.939041996607557,
+      "p95": 27.848204200563483
+    },
+    "mean_latency_ms": 15.734041662653908,
+    "detected": [
+      "bare-except",
+      "changed-code-without-related-test",
+      "datetime-utcnow-deprecated",
+      "hardcoded-secret",
+      "mutable-default-argument",
+      "query-inside-loop",
+      "sql-string-interpolation",
+      "subprocess-shell-true",
+      "weak-hash-algorithm"
+    ],
+    "missed_expected": [
+      "correctness"
+    ],
+    "provider_is_mock": true,
+    "unknowns": [
+      "invalid-location rate is not a separate metric here: the validation boundary stores unverifiable candidates as rejected, and rejected_total is reported instead",
+      "no human review of the predictions was performed as part of this run"
+    ]
+  },
+  "strategy_metrics": {},
+  "config": {
+    "repository": "demo/patchlens-demo",
+    "case_count": 3,
+    "settings": {
+      "retrieval_strategy": "hybrid",
+      "retrieval_top_k": 5,
+      "retrieval_candidate_k": 30,
+      "retrieval_rrf_k": 60,
+      "retrieval_bm25_k1": 1.5,
+      "retrieval_bm25_b": 0.75,
+      "reranker": "heuristic",
+      "embedding_provider": "hashing",
+      "embedding_model": "hashing-ngram-v2",
+      "embedding_dim": 512,
+      "llm_provider": "mock",
+      "llm_model": "deterministic-mock",
+      "llm_is_mock": true
+    },
+    "dataset_content_hash": "0db0fc89c4da8622c45ff42e2a2d8ab75a2e2bad53327e8ef1fbff124da66370",
+    "code_revision": "uncommitted",
+    "patchlens_version": "0.1.0",
+    "python_version": "3.11.15",
+    "platform": "macOS-27.0.1-arm64-arm-64bit"
+  },
+  "limitations": [
+    "Three cases, one synthetic repository, author-labelled. Labels in the correctness and security categories are marked must_find; testing, performance and maintainability labels are scored but optional. Case-003 deliberately requires semantic judgement, so a rule-only provider is expected to miss it.",
+    "small dataset: 3 case(s); confidence intervals are not reported and a single case can move the aggregate substantially",
+    "all cases are in the test split and there is no dev/train split: the dataset was labelled by the author, not collected independently",
+    "findings are scored against author-labelled expectations; a defect the author did not label counts as a false positive",
+    "review runs use the configured provider; with the mock provider the numbers measure the deterministic rule engine, not an LLM"
+  ],
+  "notes": null,
+  "error": null,
+  "started_at": "2026-10-20T06:27:35.419343Z",
+  "finished_at": "2026-10-20T06:27:35.468690Z",
+  "duration_ms": 49,
+  "results": [
+    {
+      "id": "ecr_f3889cc03ffe4ca09065b62766aaffff",
+      "case_id": "eca_63c8177e549748849f42367d1af60ddb",
+      "case_key": "review-001",
+      "split": "test",
+      "strategy": "review_pipeline",
+      "predictions": [
+        {
+          "rule_id": "bare-except",
+          "category": "correctness",
+          "path": "app/calculator.py",
+          "start_line": 19,
+          "end_line": 19,
+          "severity": "high",
+          "verification_status": "verified",
+          "title": "Bare `except:` added"
+        },
+        {
+          "rule_id": "subprocess-shell-true",
+          "category": "security",
+          "path": "app/reporting.py",
+          "start_line": 26,
+          "end_line": 26,
+          "severity": "high",
+          "verification_status": "verified",
+          "title": "Subprocess invoked through a shell"
+        },
+        {
+          "rule_id": "sql-string-interpolation",
+          "category": "security",
+          "path": "app/reporting.py",
+          "start_line": 19,
+          "end_line": 19,
+          "severity": "high",
+          "verification_status": "needs_manual_verification",
+          "title": "SQL statement assembled with string interpolation"
+        },
+        {
+          "rule_id": "weak-hash-algorithm",
+          "category": "security",
+          "path": "app/calculator.py",
+          "start_line": 42,
+          "end_line": 42,
+          "severity": "low",
+          "verification_status": "needs_manual_verification",
+          "title": "Weak hash algorithm used"
+        },
+        {
+          "rule_id": "datetime-utcnow-deprecated",
+          "category": "maintainability",
+          "path": "app/reporting.py",
+          "start_line": 32,
+          "end_line": 32,
+          "severity": "low",
+          "verification_status": "verified",
+          "title": "`datetime.utcnow()` returns a naive timestamp"
+        },
+        {
+          "rule_id": "hardcoded-secret",
+          "category": "security",
+          "path": "app/reporting.py",
+          "start_line": 11,
+          "end_line": 11,
+          "severity": "high",
+          "verification_status": "needs_manual_verification",
+          "title": "Possible credential literal assigned to `LEGACY_API_KEY`"
+        },
+        {
+          "rule_id": "mutable-default-argument",
+          "category": "correctness",
+          "path": "app/calculator.py",
+          "start_line": 34,
+          "end_line": 34,
+          "severity": "high",
+          "verification_status": "verified",
+          "title": "Mutable default argument `cache` in `summarise`"
+        },
+        {
+          "rule_id": "query-inside-loop",
+          "category": "performance",
+          "path": "app/reporting.py",
+          "start_line": 19,
+          "end_line": 19,
+          "severity": "medium",
+          "verification_status": "needs_manual_verification",
+          "title": "`cursor.execute(...)` executed inside a loop"
+        },
+        {
+          "rule_id": "changed-code-without-related-test",
+          "category": "testing",
+          "path": "app/calculator.py",
+          "start_line": 34,
+          "end_line": 34,
+          "severity": "medium",
+          "verification_status": "needs_manual_verification",
+          "title": "No related test found for `summarise`"
+        },
+        {
+          "rule_id": "changed-code-without-related-test",
+          "category": "testing",
+          "path": "app/reporting.py",
+          "start_line": 14,
+          "end_line": 14,
+          "severity": "medium",
+          "verification_status": "needs_manual_verification",
+          "title": "No related test found for `load_prices`"
+        },
+        {
+          "rule_id": "changed-code-without-related-test",
+          "category": "testing",
+          "path": "app/reporting.py",
+          "start_line": 24,
+          "end_line": 24,
+          "severity": "medium",
+          "verification_status": "needs_manual_verification",
+          "title": "No related test found for `export_prices`"
+        },
+        {
+          "rule_id": "changed-code-without-related-test",
+          "category": "testing",
+          "path": "app/reporting.py",
+          "start_line": 30,
+          "end_line": 30,
+          "severity": "medium",
+          "verification_status": "needs_manual_verification",
+          "title": "No related test found for `generated_at`"
+        }
+      ],
+      "metrics": {
+        "categories": {
+          "correctness": {
+            "tp": 2,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "maintainability": {
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "performance": {
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "security": {
+            "tp": 4,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "testing": {
+            "tp": 4,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          }
+        },
+        "overall": {
+          "tp": 12,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "matched": [
+          {
+            "expected": {
+              "category": "correctness",
+              "path": "app/calculator.py",
+              "line": 19,
+              "rule_id": "bare-except",
+              "must_find": true,
+              "note": null
+            },
+            "predicted": {
+              "rule_id": "bare-except",
+              "category": "correctness",
+              "path": "app/calculator.py",
+              "start_line": 19,
+              "end_line": 19,
+              "severity": "high",
+              "verification_status": "verified",
+              "title": "Bare `except:` added"
+            },
+            "rule_match": true
+          },
+          {
+            "expected": {
+              "category": "correctness",
+              "path": "app/calculator.py",
+              "line": 34,
+              "rule_id": "mutable-default-argument",
+              "must_find": true,
+              "note": null
+            },
+            "predicted": {
+              "rule_id": "mutable-default-argument",
+              "category": "correctness",
+              "path": "app/calculator.py",
+              "start_line": 34,
+              "end_line": 34,
+              "severity": "high",
+              "verification_status": "verified",
+              "title": "Mutable default argument `cache` in `summarise`"
+            },
+            "rule_match": true
+          },
+          {
+            "expected": {
+              "category": "testing",
+              "path": "app/calculator.py",
+              "line": 34,
+              "rule_id": "changed-code-without-related-test",
+              "must_find": false,
+              "note": null
+            },
+            "predicted": {
+              "rule_id": "changed-code-without-related-test",
+              "category": "testing",
+              "path": "app/calculator.py",
+              "start_line": 34,
+              "end_line": 34,
+              "severity": "medium",
+              "verification_status": "needs_manual_verification",
+              "title": "No related test found for `summarise`"
+            },
+            "rule_match": true
+          },
+          {
+            "expected": {
+              "category": "security",
+              "path": "app/calculator.py",
+              "line": 42,
+              "rule_id": "weak-hash-algorithm",
+              "must_find": true,
+              "note": null
+            },
+            "predicted": {
+              "rule_id": "weak-hash-algorithm",
+              "category": "security",
+              "path": "app/calculator.py",
+              "start_line": 42,
+              "end_line": 42,
+              "severity": "low",
+              "verification_status": "needs_manual_verification",
+              "title": "Weak hash algorithm used"
+            },
+            "rule_match": true
+          },
+          {
+            "expected": {
+              "category": "security",
+              "path": "app/reporting.py",
+              "line": 11,
+              "rule_id": "hardcoded-secret",
+              "must_find": true,
+              "note": null
+            },
+            "predicted": {
+              "rule_id": "hardcoded-secret",
+              "category": "security",
+              "path": "app/reporting.py",
+              "start_line": 11,
+              "end_line": 11,
+              "severity": "high",
+              "verification_status": "needs_manual_verification",
+              "title": "Possible credential literal assigned to `LEGACY_API_KEY`"
+            },
+            "rule_match": true
+          },
+          {
+            "expected": {
+              "category": "testing",
+              "path": "app/reporting.py",
+              "line": 14,
+              "rule_id": "changed-code-without-related-test",
+              "must_find": false,
+              "note": null
+            },
+            "predicted": {
+              "rule_id": "changed-code-without-related-test",
+              "category": "testing",
+              "path": "app/reporting.py",
+              "start_line": 14,
+              "end_line": 14,
+              "severity": "medium",
+              "verification_status": "needs_manual_verification",
+              "title": "No related test found for `load_prices`"
+            },
+            "rule_match": true
+          },
+          {
+            "expected": {
+              "category": "performance",
+              "path": "app/reporting.py",
+              "line": 19,
+              "rule_id": "query-inside-loop",
+              "must_find": false,
+              "note": null
+            },
+            "predicted": {
+              "rule_id": "query-inside-loop",
+              "category": "performance",
+              "path": "app/reporting.py",
+              "start_line": 19,
+              "end_line": 19,
+              "severity": "medium",
+              "verification_status": "needs_manual_verification",
+              "title": "`cursor.execute(...)` executed inside a loop"
+            },
+            "rule_match": true
+          },
+          {
+            "expected": {
+              "category": "security",
+              "path": "app/reporting.py",
+              "line": 19,
+              "rule_id": "sql-string-interpolation",
+              "must_find": true,
+              "note": null
+            },
+            "predicted": {
+              "rule_id": "sql-string-interpolation",
+              "category": "security",
+              "path": "app/reporting.py",
+              "start_line": 19,
+              "end_line": 19,
+              "severity": "high",
+              "verification_status": "needs_manual_verification",
+              "title": "SQL statement assembled with string interpolation"
+            },
+            "rule_match": true
+          },
+          {
+            "expected": {
+              "category": "testing",
+              "path": "app/reporting.py",
+              "line": 24,
+              "rule_id": "changed-code-without-related-test",
+              "must_find": false,
+              "note": null
+            },
+            "predicted": {
+              "rule_id": "changed-code-without-related-test",
+              "category": "testing",
+              "path": "app/reporting.py",
+              "start_line": 24,
+              "end_line": 24,
+              "severity": "medium",
+              "verification_status": "needs_manual_verification",
+              "title": "No related test found for `export_prices`"
+            },
+            "rule_match": true
+          },
+          {
+            "expected": {
+              "category": "security",
+              "path": "app/reporting.py",
+              "line": 26,
+              "rule_id": "subprocess-shell-true",
+              "must_find": true,
+              "note": null
+            },
+            "predicted": {
+              "rule_id": "subprocess-shell-true",
+              "category": "security",
+              "path": "app/reporting.py",
+              "start_line": 26,
+              "end_line": 26,
+              "severity": "high",
+              "verification_status": "verified",
+              "title": "Subprocess invoked through a shell"
+            },
+            "rule_match": true
+          },
+          {
+            "expected": {
+              "category": "testing",
+              "path": "app/reporting.py",
+              "line": 30,
+              "rule_id": "changed-code-without-related-test",
+              "must_find": false,
+              "note": null
+            },
+            "predicted": {
+              "rule_id": "changed-code-without-related-test",
+              "category": "testing",
+              "path": "app/reporting.py",
+              "start_line": 30,
+              "end_line": 30,
+              "severity": "medium",
+              "verification_status": "needs_manual_verification",
+              "title": "No related test found for `generated_at`"
+            },
+            "rule_match": true
+          },
+          {
+            "expected": {
+              "category": "maintainability",
+              "path": "app/reporting.py",
+              "line": 32,
+              "rule_id": "datetime-utcnow-deprecated",
+              "must_find": false,
+              "note": null
+            },
+            "predicted": {
+              "rule_id": "datetime-utcnow-deprecated",
+              "category": "maintainability",
+              "path": "app/reporting.py",
+              "start_line": 32,
+              "end_line": 32,
+              "severity": "low",
+              "verification_status": "verified",
+              "title": "`datetime.utcnow()` returns a naive timestamp"
+            },
+            "rule_match": true
+          }
+        ],
+        "missed": [],
+        "unexpected": [],
+        "rule_match_rate": 1.0,
+        "latency_ms": 29.727000001003034,
+        "expected_count": 12,
+        "rejected_count": 0,
+        "must_find_total": 6,
+        "must_find_missed": 0,
+        "review_id": "rvw_6638e3b485104c89bc06b64e26366caf",
+        "review_status": "succeeded"
+      },
+      "latency_ms": 29.727000001003034,
+      "error": null
+    },
+    {
+      "id": "ecr_9dac71df933d4e1e93ffb1abc95c88fa",
+      "case_id": "eca_84365cd7168944b9a57b21c1ef77204d",
+      "case_key": "review-002",
+      "split": "test",
+      "strategy": "review_pipeline",
+      "predictions": [],
+      "metrics": {
+        "categories": {},
+        "overall": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "precision": null,
+          "recall": null,
+          "f1": null
+        },
+        "matched": [],
+        "missed": [],
+        "unexpected": [],
+        "rule_match_rate": null,
+        "latency_ms": 10.939041996607557,
+        "expected_count": 0,
+        "rejected_count": 0,
+        "must_find_total": 0,
+        "must_find_missed": 0,
+        "review_id": "rvw_65fde01f28d240ae98f597c0a185689c",
+        "review_status": "succeeded"
+      },
+      "latency_ms": 10.939041996607557,
+      "error": null
+    },
+    {
+      "id": "ecr_f7de6f7339814a9aa70530998543d3d3",
+      "case_id": "eca_661605c9303a416689fda0a1862adecb",
+      "case_key": "review-003",
+      "split": "test",
+      "strategy": "review_pipeline",
+      "predictions": [
+        {
+          "rule_id": "changed-code-without-related-test",
+          "category": "testing",
+          "path": "app/calculator.py",
+          "start_line": 23,
+          "end_line": 23,
+          "severity": "medium",
+          "verification_status": "needs_manual_verification",
+          "title": "No related test found for `mean`"
+        }
+      ],
+      "metrics": {
+        "categories": {
+          "correctness": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": null,
+            "recall": 0.0,
+            "f1": null
+          },
+          "testing": {
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          }
+        },
+        "overall": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 1,
+          "precision": 1.0,
+          "recall": 0.5,
+          "f1": 0.6666666666666666
+        },
+        "matched": [
+          {
+            "expected": {
+              "category": "testing",
+              "path": "app/calculator.py",
+              "line": 23,
+              "rule_id": "changed-code-without-related-test",
+              "must_find": false,
+              "note": null
+            },
+            "predicted": {
+              "rule_id": "changed-code-without-related-test",
+              "category": "testing",
+              "path": "app/calculator.py",
+              "start_line": 23,
+              "end_line": 23,
+              "severity": "medium",
+              "verification_status": "needs_manual_verification",
+              "title": "No related test found for `mean`"
+            },
+            "rule_match": true
+          }
+        ],
+        "missed": [
+          {
+            "category": "correctness",
+            "path": "app/calculator.py",
+            "line": 23,
+            "rule_id": null,
+            "must_find": true,
+            "note": null
+          }
+        ],
+        "unexpected": [],
+        "rule_match_rate": 1.0,
+        "latency_ms": 6.536082990351133,
+        "expected_count": 2,
+        "rejected_count": 0,
+        "must_find_total": 1,
+        "must_find_missed": 1,
+        "review_id": "rvw_d4844b95cea948dcb02b431b07d4b89a",
+        "review_status": "succeeded"
+      },
+      "latency_ms": 6.536082990351133,
+      "error": null
+    }
+  ]
+}

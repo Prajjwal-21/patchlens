@@ -1,0 +1,44 @@
+# ---------------------------------------------------------------- local state
+.venv/
+backend/var/
+.demo-repository-id
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+
+# --------------------------------------------------------- configuration/secrets
+# `.env` is the only place credentials belong. `.env.example` is generated from
+# the settings model and must stay committed.
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# ---------------------------------------------------------------- Python build
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.sqlite3
+*.db
+
+# --------------------------------------------------------------- Node/Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+npm-debug.log*
+
+# ------------------------------------------------------------- editors/system
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# ------------------------------------------------------------------- runtime
+*.log

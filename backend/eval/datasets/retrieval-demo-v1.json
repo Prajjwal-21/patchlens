@@ -1,0 +1,240 @@
+{
+  "name": "retrieval-demo-v1",
+  "version": "1",
+  "kind": "retrieval",
+  "repository": "demo/patchlens-demo",
+  "commit_sha": "demo-local",
+  "description": "Twelve hand-labelled queries over the bundled demo repository. Queries mix natural language, identifier lookup and test-oriented questions.",
+  "provenance": "Authored for this repository against the indexed demo fixture (examples/demo-repo). Labels were written by reading the fixture, not collected from users or an external benchmark.",
+  "license_note": "Synthetic fixture; no third-party content.",
+  "limitations": "A 21-symbol synthetic repository labelled by the author. Numbers measure sanity and strategy comparison, not production retrieval quality.",
+  "cases": [
+    {
+      "id": "ret-001",
+      "query": "apply a percentage discount to a price",
+      "relevant": [
+        {
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "grade": 3
+        },
+        {
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "grade": 2
+        },
+        {
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.lookup",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "ret-002",
+      "query": "divide two numbers safely",
+      "relevant": [
+        {
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "grade": 3
+        },
+        {
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_returns_the_quotient",
+          "grade": 2
+        },
+        {
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_by_zero_is_undefined",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "ret-003",
+      "query": "look up the price of a sku",
+      "relevant": [
+        {
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.lookup",
+          "grade": 3
+        },
+        {
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "grade": 2
+        },
+        {
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.known_skus",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "ret-004",
+      "query": "handle the sum endpoint",
+      "relevant": [
+        {
+          "path": "app/api.py",
+          "qualified_name": "handle_sum",
+          "grade": 3
+        },
+        {
+          "path": "app/calculator.py",
+          "qualified_name": "add",
+          "grade": 2
+        },
+        {
+          "path": "app/api.py",
+          "qualified_name": "Request",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "ret-005",
+      "query": "arithmetic mean of a list of values",
+      "relevant": [
+        {
+          "path": "app/calculator.py",
+          "qualified_name": "mean",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "ret-006",
+      "query": "list every available sku in the price table",
+      "relevant": [
+        {
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable.known_skus",
+          "grade": 3
+        },
+        {
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "id": "ret-007",
+      "query": "test that adding two numbers is commutative",
+      "relevant": [
+        {
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_add_is_commutative",
+          "grade": 3
+        },
+        {
+          "path": "app/calculator.py",
+          "qualified_name": "add",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "ret-008",
+      "query": "parse the request path and query parameters",
+      "relevant": [
+        {
+          "path": "app/api.py",
+          "qualified_name": "Request",
+          "grade": 3
+        },
+        {
+          "path": "app/api.py",
+          "qualified_name": "handle_sum",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "ret-009",
+      "query": "HTTP handler for division",
+      "relevant": [
+        {
+          "path": "app/api.py",
+          "qualified_name": "handle_divide",
+          "grade": 3
+        },
+        {
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "grade": 2
+        },
+        {
+          "path": "app/api.py",
+          "qualified_name": "Request",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "ret-010",
+      "query": "what happens when the divisor is zero",
+      "relevant": [
+        {
+          "path": "app/calculator.py",
+          "qualified_name": "divide",
+          "grade": 3
+        },
+        {
+          "path": "tests/test_calculator.py",
+          "qualified_name": "test_divide_by_zero_is_undefined",
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "id": "ret-011",
+      "query": "discount handler that needs a price table",
+      "relevant": [
+        {
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "grade": 3
+        },
+        {
+          "path": "app/calculator.py",
+          "qualified_name": "apply_discount",
+          "grade": 2
+        },
+        {
+          "path": "app/pricing.py",
+          "qualified_name": "PriceTable",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "ret-012",
+      "query": "where are the HTTP request handlers",
+      "relevant": [
+        {
+          "path": "app/api.py",
+          "qualified_name": "handle_sum",
+          "grade": 2
+        },
+        {
+          "path": "app/api.py",
+          "qualified_name": "handle_divide",
+          "grade": 2
+        },
+        {
+          "path": "app/api.py",
+          "qualified_name": "handle_discount",
+          "grade": 2
+        },
+        {
+          "path": "app/api.py",
+          "qualified_name": "api",
+          "grade": 1
+        }
+      ]
+    }
+  ]
+}
