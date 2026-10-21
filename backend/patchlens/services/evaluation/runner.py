@@ -14,9 +14,11 @@ from __future__ import annotations
 
 import platform
 import subprocess
+import tempfile
 import time
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -44,6 +46,8 @@ from patchlens.services.providers.factory import build_embedding_provider
 from patchlens.services.retrieval.service import CodeRetriever, resolve_version
 from patchlens.services.review.diff import parse_diff
 from patchlens.services.review.pipeline import ReviewPipeline, ReviewRequest
+from patchlens.services.testing.execution import ProcessResult, run_test_source
+from patchlens.services.testing.generator import TestTargetSpec, generate_candidates
 
 logger = get_logger(__name__)
 
@@ -515,6 +519,366 @@ def run_review_evaluation(
     )
 
 
+def _write_repo_source(repo_root: Path, target_path: str, source: str) -> None:
+    """Write a corpus file inside the temporary evaluation checkout."""
+    target = repo_root.joinpath(target_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(source, encoding="utf-8")
+    # Namespace packages work, but explicit __init__.py files make the fixture
+    # behave like a normal package for generated imports.
+    parts = target_path.split("/")[:-1]
+    for index in range(1, len(parts) + 1):
+        package_dir = repo_root.joinpath(*parts[:index])
+        package_dir.mkdir(parents=True, exist_ok=True)
+        init_file = package_dir / "__init__.py"
+        if not init_file.exists():
+            init_file.write_text("", encoding="utf-8")
+
+
+def _execution_metrics(
+    candidate: Any,
+    target: TestTargetSpec,
+    mutations: Sequence[dict[str, Any]],
+    settings: Settings,
+) -> dict[str, Any]:
+    """Run one candidate against original and mutated source in a temp checkout.
+
+    Only the explicitly enabled subprocess tier is used. A test that fails on the
+    original is not credited with a regression detection; the denominator contains
+    only mutations that were actually executed.
+    """
+    with tempfile.TemporaryDirectory(prefix="patchlens-eval-repo-") as tempdir:
+        repo_root = Path(tempdir).resolve() / "repo"
+        repo_root.mkdir()
+        _write_repo_source(repo_root, target.path, target.source)
+        original: ProcessResult = run_test_source(
+            source=candidate.source,
+            test_path=candidate.suggested_test_path,
+            repository_root=repo_root,
+            settings=settings,
+        )
+        if original.spawn_error:
+            return {
+                "executed": False,
+                "execution_error": original.spawn_error[:500],
+                "passed_on_original": None,
+                "mutations_total": len(mutations),
+                "mutations_evaluated": 0,
+                "mutations_detected": 0,
+                "execution_latency_ms": original.duration_ms,
+            }
+        passed = original.exit_code == 0
+        result: dict[str, Any] = {
+            "executed": True,
+            "passed_on_original": passed,
+            "original_exit_code": original.exit_code,
+            "original_timed_out": original.timed_out,
+            "mutations_total": len(mutations),
+            "mutations_evaluated": 0,
+            "mutations_detected": 0,
+            "mutation_results": [],
+            "execution_latency_ms": original.duration_ms,
+        }
+        if not passed:
+            result["execution_latency_ms"] = original.duration_ms
+            return result
+        execution_latency = original.duration_ms
+        for mutation in mutations:
+            _write_repo_source(repo_root, target.path, str(mutation.get("mutated_source") or ""))
+            mutation_result = run_test_source(
+                source=candidate.source,
+                test_path=candidate.suggested_test_path,
+                repository_root=repo_root,
+                settings=settings,
+            )
+            execution_latency += mutation_result.duration_ms
+            if mutation_result.spawn_error:
+                result["mutation_results"].append(
+                    {
+                        "id": mutation.get("id"),
+                        "evaluated": False,
+                        "error": mutation_result.spawn_error[:300],
+                    }
+                )
+                continue
+            detected = mutation_result.exit_code != 0
+            result["mutations_evaluated"] += 1
+            result["mutations_detected"] += int(detected)
+            result["mutation_results"].append(
+                {
+                    "id": mutation.get("id"),
+                    "evaluated": True,
+                    "exit_code": mutation_result.exit_code,
+                    "timed_out": mutation_result.timed_out,
+                    "detected": detected,
+                }
+            )
+        result["execution_latency_ms"] = execution_latency
+        return result
+
+
+def run_test_generation_evaluation(
+    session: Session,
+    *,
+    dataset: EvalDataset,
+    cases: Sequence[EvalCase],
+    repository: Repository,
+    settings: Settings,
+    llm_provider: LLMProvider | None = None,
+) -> EvalRun:
+    """Generate a candidate per case and measure validity, execution and mutations."""
+    execution_enabled = settings.test_execution_mode == "subprocess" and settings.allow_local_test_execution
+    limitations = _limitations(
+        dataset,
+        "test-generation cases embed a target source snapshot; generated tests are "
+        "scored against that snapshot, not a repository checkout",
+        "execution, pass rate and regression detection use the subprocess tier and are "
+        "reported as UNKNOWN unless TEST_EXECUTION_MODE=subprocess and "
+        "ALLOW_LOCAL_TEST_EXECUTION=true; the Docker tier is not used by this harness",
+        "with the mock provider the generated tests are deterministic placeholders, so "
+        "execution numbers describe the mock, not a neural model",
+    )
+    if not execution_enabled:
+        limitations.append(
+            "execution_rate, pass_rate_on_original and regression_detection_rate are "
+            "UNKNOWN because no execution sandbox is explicitly enabled"
+        )
+    run = _start_run(
+        session,
+        dataset=dataset,
+        kind="test_generation",
+        settings=settings,
+        config={
+            "repository": repository.full_name,
+            "case_count": len(cases),
+            "execution_mode": settings.test_execution_mode,
+            "execution_enabled": execution_enabled,
+            "test_generation_enabled": settings.test_generation_enabled,
+            "llm_is_mock": settings.llm_is_mock,
+        },
+        limitations=limitations,
+    )
+    provider = llm_provider
+    owns_provider = False
+    if provider is None:
+        try:
+            from patchlens.services.providers.factory import build_llm_provider
+
+            provider = build_llm_provider(settings)
+            owns_provider = True
+        except Exception as exc:
+            detail = describe_exception(exc)
+            _fail_run(session, run, f"provider unavailable: {detail['type']}: {detail['message']}")
+            return run
+
+    case_metrics: list[dict[str, Any]] = []
+    latencies: list[float] = []
+    try:
+        for case in cases:
+            payload = case.payload or {}
+            target = TestTargetSpec(
+                path=str(payload.get("target_path") or ""),
+                qualified_name=str(payload.get("target_symbol") or ""),
+                kind="dataset_target",
+                source=str(payload.get("source") or ""),
+                signature=payload.get("signature"),
+                related_tests=tuple(
+                    {
+                        "test_path": item,
+                        "test_name": item,
+                        "reason": "dataset_related_test",
+                    }
+                    for item in list(payload.get("related_tests") or [])
+                    if isinstance(item, str)
+                ),
+            )
+            mutations = list(payload.get("mutations") or [])
+            started = time.perf_counter()
+            error: str | None = None
+            try:
+                generated = generate_candidates(
+                    session,
+                    repository=repository,
+                    targets=[target],
+                    settings=settings,
+                    llm_provider=provider,
+                    commit_sha=dataset.commit_sha,
+                    persist=False,
+                )
+            except Exception as exc:
+                detail = describe_exception(exc)
+                error = f"{detail['type']}: {detail['message']}"
+                generated = None
+            latency_ms = (time.perf_counter() - started) * 1000
+            latencies.append(latency_ms)
+            candidate = generated.candidates[0] if generated and generated.candidates else None
+            valid = candidate is not None
+            metrics: dict[str, Any] = {
+                "target": f"{target.path}::{target.qualified_name}",
+                "attempted": generated.attempted if generated else 0,
+                "valid": int(valid),
+                "rejected": len(generated.rejected) if generated else 0,
+                "candidate_count": len(generated.candidates) if generated else 0,
+                "generation_latency_ms": latency_ms,
+                "provider": generated.provider if generated else None,
+                "model": generated.model if generated else None,
+                "is_mock_provider": generated.is_mock if generated else None,
+                "execution_enabled": execution_enabled,
+            }
+            if generated is not None:
+                metrics["usage"] = generated.usage
+            if candidate is not None and execution_enabled:
+                metrics.update(_execution_metrics(candidate, target, mutations, settings))
+            elif candidate is not None:
+                metrics.update(
+                    {
+                        "executed": False,
+                        "passed_on_original": None,
+                        "mutations_total": len(mutations),
+                        "mutations_evaluated": 0,
+                        "mutations_detected": 0,
+                    }
+                )
+            session.add(
+                EvalCaseResult(
+                    run_id=run.id,
+                    case_id=case.id,
+                    case_key=case.case_key,
+                    split=case.split,
+                    strategy="test_generation",
+                    predictions=(
+                        [
+                            {
+                                "target": f"{target.path}::{target.qualified_name}",
+                                "test_path": candidate.suggested_test_path,
+                                "status": candidate.status,
+                                "is_mock_provider": candidate.is_mock_provider,
+                            }
+                        ]
+                        if candidate is not None
+                        else []
+                    ),
+                    metrics=metrics,
+                    latency_ms=latency_ms,
+                    error=error,
+                )
+            )
+            case_metrics.append({**metrics, "error": error})
+    except Exception as exc:
+        detail = describe_exception(exc)
+        _fail_run(session, run, f"{detail['type']}: {detail['message']}")
+        logger.error("test-generation evaluation failed", extra=log_extra(dataset=dataset.name, **detail))
+        return run
+    finally:
+        if owns_provider and provider is not None:
+            provider.close()
+
+    attempted = sum(int(item.get("attempted") or 0) for item in case_metrics)
+    valid_count = sum(int(item.get("valid") or 0) for item in case_metrics)
+    rejected = sum(int(item.get("rejected") or 0) for item in case_metrics)
+    executed = sum(1 for item in case_metrics if bool(item.get("executed")))
+    passed = sum(1 for item in case_metrics if item.get("passed_on_original") is True)
+    mutations_total = sum(int(item.get("mutations_total") or 0) for item in case_metrics)
+    mutations_evaluated = sum(int(item.get("mutations_evaluated") or 0) for item in case_metrics)
+    mutations_detected = sum(int(item.get("mutations_detected") or 0) for item in case_metrics)
+    execution_latencies = [
+        float(item["execution_latency_ms"])
+        for item in case_metrics
+        if item.get("execution_latency_ms") is not None
+    ]
+    failures = sum(1 for item in case_metrics if item.get("error"))
+    usages: list[dict[str, Any]] = []
+    for item in case_metrics:
+        item_usage = item.get("usage")
+        if isinstance(item_usage, dict):
+            usages.append(item_usage)
+    usage = _merge_eval_usage(usages)
+    unknowns: list[str] = []
+    if not execution_enabled:
+        unknowns.append(
+            "execution_rate, pass_rate_on_original and regression_detection_rate are UNKNOWN: "
+            "no execution sandbox is explicitly enabled"
+        )
+    elif mutations_evaluated == 0:
+        unknowns.append(
+            "regression_detection_rate is UNKNOWN: no mutation was evaluated "
+            "(the generated test did not pass on the original source)"
+        )
+    if usage.get("estimated_cost_usd") is None:
+        unknowns.append("cost_usd is UNKNOWN: the provider did not report a configured price")
+    metrics = {
+        "case_count": len(cases),
+        "attempted": attempted,
+        "valid": valid_count,
+        "rejected": rejected,
+        "validity_rate": (valid_count / attempted) if attempted else None,
+        "generation_failure_rate": (1 - (valid_count / attempted)) if attempted else None,
+        "execution_rate": (executed / valid_count) if execution_enabled and valid_count else None,
+        "executed": executed,
+        "pass_rate_on_original": (passed / executed) if execution_enabled and executed else None,
+        "mutations": {
+            "declared": mutations_total,
+            "evaluated": mutations_evaluated,
+            "detected": mutations_detected,
+        },
+        "regression_detection_rate": (
+            mutations_detected / mutations_evaluated if mutations_evaluated else None
+        ),
+        "failure_rate": (failures / len(case_metrics)) if case_metrics else None,
+        "latency_ms": {
+            "p50": percentile(latencies, 0.5),
+            "p95": percentile(latencies, 0.95),
+        },
+        "mean_latency_ms": mean(latencies),
+        "execution_latency_ms": {
+            "p50": percentile(execution_latencies, 0.5),
+            "p95": percentile(execution_latencies, 0.95),
+        },
+        "provider_is_mock": getattr(provider, "is_mock", None),
+        "usage": usage,
+        "cost_usd": usage.get("estimated_cost_usd"),
+        "unknowns": unknowns,
+        "case_metrics": [
+            {
+                "case": item.get("target", ""),
+                "valid": item.get("valid"),
+                "executed": item.get("executed"),
+                "passed_on_original": item.get("passed_on_original"),
+                "mutations_evaluated": item.get("mutations_evaluated"),
+                "mutations_detected": item.get("mutations_detected"),
+                "error": item.get("error"),
+            }
+            for item in case_metrics
+        ],
+    }
+    return _finish_run(
+        session,
+        run,
+        metrics=metrics,
+        strategy_metrics={},
+        sample_count=len(cases),
+    )
+
+
+def _merge_eval_usage(usages: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    total: dict[str, Any] = {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+        "requests": 0,
+        "estimated_cost_usd": None,
+        "cost_basis": "unavailable",
+    }
+    for usage in usages:
+        for key in ("prompt_tokens", "completion_tokens", "total_tokens", "requests"):
+            total[key] += int(usage.get(key) or 0)
+        cost = usage.get("estimated_cost_usd")
+        if isinstance(cost, int | float):
+            total["estimated_cost_usd"] = round(float(total["estimated_cost_usd"] or 0.0) + float(cost), 8)
+            total["cost_basis"] = usage.get("cost_basis") or "configured_price"
+    return total
+
+
 def dataset_cases(session: Session, dataset: EvalDataset) -> list[EvalCase]:
     """Cases in a stable order, so two runs are comparable case by case."""
     return load_cases(session, dataset)
@@ -542,6 +906,12 @@ def run_findings_summary(case_results: Sequence[EvalCaseResult]) -> list[dict[st
                     "must_find_total",
                     "must_find_missed",
                     "matched",
+                    "validity_rate",
+                    "execution_rate",
+                    "pass_rate_on_original",
+                    "regression_detection_rate",
+                    "generation_failure_rate",
+                    "candidate_count",
                 }
                 or key.startswith(("recall@", "mrr@", "ndcg@"))
             },
@@ -575,5 +945,6 @@ __all__ = [
     "run_findings_summary",
     "run_retrieval_evaluation",
     "run_review_evaluation",
+    "run_test_generation_evaluation",
     "verify_case_diffs",
 ]

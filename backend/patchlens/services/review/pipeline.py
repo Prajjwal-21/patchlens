@@ -27,7 +27,7 @@ import time
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -46,6 +46,7 @@ from patchlens.core.logging import describe_exception, get_logger, log_extra
 from patchlens.core.security import content_fingerprint
 from patchlens.db.models.repository import Repository
 from patchlens.db.models.review import Finding, Review
+from patchlens.db.models.testing import TestCandidate
 from patchlens.services.embedding.base import EmbeddingProvider
 from patchlens.services.llm.base import LLMProvider
 from patchlens.services.providers.factory import build_embedding_provider, build_llm_provider
@@ -66,6 +67,9 @@ from patchlens.services.review.validation import (
     finding_fingerprint,
     validate_completion,
 )
+
+if TYPE_CHECKING:
+    from patchlens.services.testing.generator import GenerationResult
 
 logger = get_logger(__name__)
 
@@ -102,6 +106,8 @@ class ReviewRunResult:
     duration_ms: int = 0
     warnings: list[str] = field(default_factory=list)
     llm_error: str | None = None
+    test_candidates: list[TestCandidate] = field(default_factory=list)
+    test_generation: dict[str, Any] = field(default_factory=dict)
 
     @property
     def accepted_count(self) -> int:
@@ -367,7 +373,23 @@ class ReviewPipeline:
             review.llm_model = completion_meta.get("model", self.settings.llm_model)
             review.is_mock_provider = bool(completion_meta.get("is_mock", self.settings.llm_is_mock))
             review.usage = completion_meta.get("usage", {})
-            review.duration_ms = int((time.perf_counter() - started) * 1000)
+
+            self._stage(review, "generating_tests", 92)
+            generation, generation_summary = self._generate_tests(
+                review, mapping, bundle, findings, request, llm_error=llm_error
+            )
+            result.test_candidates = generation
+            result.test_generation = generation_summary
+            if generation_summary.get("state") in {"failed", "rejected"}:
+                result.warnings.append(
+                    "test generation did not produce a valid candidate: "
+                    + "; ".join(str(note) for note in generation_summary.get("notes") or [])[:500]
+                )
+            if generation_summary.get("usage", {}).get("requests"):
+                review.usage = {
+                    **(review.usage or {}),
+                    "test_generation": generation_summary["usage"],
+                }
             review.metadata_json = self._metadata(
                 request=request,
                 mapping=mapping,
@@ -376,7 +398,9 @@ class ReviewPipeline:
                 validation=validation,
                 completion_meta=completion_meta,
                 llm_error=llm_error,
+                test_generation=generation_summary,
             )
+            review.duration_ms = int((time.perf_counter() - started) * 1000)
             if llm_error:
                 review.status = ReviewStatus.FAILED.value
                 review.stage = "model_failed"
@@ -490,6 +514,104 @@ class ReviewPipeline:
                 row.dedupe_of_finding_id = target.id
         return rows
 
+    def _generate_tests(
+        self,
+        review: Review,
+        mapping: SymbolMapping,
+        bundle: RetrievalBundle,
+        findings: list[Finding],
+        request: ReviewRequest,
+        *,
+        llm_error: str | None,
+    ) -> tuple[list[TestCandidate], dict[str, Any]]:
+        """Generate test candidates as optional review enrichment.
+
+        Never raises: a provider/validation failure is recorded and the review
+        result is preserved. Candidates are never executed here.
+        """
+        from patchlens.services.testing.generator import (
+            generate_candidates,
+            targets_from_mapping,
+        )
+
+        if not self.settings.test_generation_enabled:
+            return [], {
+                "state": "disabled",
+                "detail": "TEST_GENERATION_ENABLED=false; no candidate tests were requested",
+                "execution": {"mode": self.settings.test_execution_mode, "executed": 0},
+            }
+        if llm_error:
+            return [], {
+                "state": "skipped",
+                "detail": "the review model failed, so test generation was not attempted",
+                "execution": {"mode": self.settings.test_execution_mode, "executed": 0},
+            }
+        targets = targets_from_mapping(
+            mapping,
+            bundle,
+            findings,
+            limit=self.settings.test_generation_max_candidates,
+        )
+        if not targets:
+            return [], {
+                "state": "skipped",
+                "detail": "no changed non-test symbols with source were available for test generation",
+                "execution": {"mode": self.settings.test_execution_mode, "executed": 0},
+            }
+        try:
+            provider = self._llm_provider or self.llm
+            generated: GenerationResult = generate_candidates(
+                self.session,
+                repository=request.repository,
+                targets=targets,
+                settings=self.settings,
+                llm_provider=provider,
+                review=review,
+                commit_sha=request.commit_sha,
+            )
+        except ProviderError as exc:
+            detail = f"test generation provider failed: {exc.message}"
+            logger.warning(
+                "test generation failed; review preserved",
+                extra=log_extra(review_id=review.id, **describe_exception(exc)),
+            )
+            return [], {
+                "state": "failed",
+                "detail": detail[:1_000],
+                "notes": [detail[:1_000]],
+                "execution": {"mode": self.settings.test_execution_mode, "executed": 0},
+            }
+        except Exception as exc:  # pragma: no cover - defensive boundary
+            detail = f"test generation failed: {type(exc).__name__}: {exc}"
+            logger.exception("test generation failed unexpectedly", extra=log_extra(review_id=review.id))
+            return [], {
+                "state": "failed",
+                "detail": detail[:1_000],
+                "notes": [detail[:1_000]],
+                "execution": {"mode": self.settings.test_execution_mode, "executed": 0},
+            }
+
+        summary = generated.summary()
+        summary["execution"] = {
+            "mode": self.settings.test_execution_mode,
+            "executed": 0,
+            "note": (
+                "generation is not execution; request execution explicitly and see "
+                "/api/v1/test-execution for the available sandbox"
+            ),
+        }
+        statuses: dict[str, int] = {}
+        for candidate in [*generated.candidates, *generated.reused]:
+            statuses[candidate.status] = statuses.get(candidate.status, 0) + 1
+        summary["statuses"] = statuses
+        if generated.candidates and all(
+            candidate.status == "execution_disabled" for candidate in generated.candidates
+        ):
+            summary["detail"] = (
+                "candidate tests were generated but not executed because no execution sandbox is enabled"
+            )
+        return generated.candidates, summary
+
     def _publish_if_configured(
         self, review: Review, findings: list[Finding], result: ReviewRunResult
     ) -> None:
@@ -581,7 +703,21 @@ class ReviewPipeline:
         validation: ValidationResult | None,
         completion_meta: dict[str, Any],
         llm_error: str | None,
+        test_generation: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        changed_non_test = [
+            symbol for symbol in mapping.changed_symbols if not symbol.is_test and symbol.kind != "module"
+        ]
+        related_tests: list[dict[str, Any]] = []
+        seen_tests: set[tuple[str, str]] = set()
+        for changed_symbol, matches in mapping.test_matches.items():
+            for match in matches:
+                payload = match.to_dict()
+                key = (str(payload.get("test_path")), str(payload.get("test_name")))
+                if key in seen_tests:
+                    continue
+                seen_tests.add(key)
+                related_tests.append({**payload, "changed_symbol": changed_symbol})
         return {
             "pipeline_version": PIPELINE_VERSION,
             "diff_hash": content_fingerprint(request.diff_text, length=64),
@@ -602,6 +738,14 @@ class ReviewPipeline:
             "model": completion_meta,
             "llm_error": llm_error,
             "degraded": llm_error is not None,
+            "test_intelligence": {
+                "related_tests": related_tests[:50],
+                "changed_non_test_symbols": len(changed_non_test),
+                "symbols_with_related_tests": len(mapping.test_matches),
+                "symbols_without_related_tests": max(0, len(changed_non_test) - len(mapping.test_matches)),
+                "candidates": test_generation or {"state": "disabled"},
+            },
+            "test_generation": test_generation,
         }
 
 

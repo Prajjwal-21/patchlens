@@ -32,7 +32,8 @@ RUN mkdir -p /app/var && chown -R patchlens:patchlens /app
 USER patchlens
 EXPOSE 8000
 
-HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"
+# The image runs either the API or the worker. A process-level healthcheck belongs
+# to the service definition (see the `api` service in docker-compose.yml); baking an
+# HTTP probe into the shared image would mark every worker unhealthy.
 
 CMD ["python", "-m", "patchlens.cli", "serve", "--host", "0.0.0.0", "--port", "8000"]

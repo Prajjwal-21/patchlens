@@ -47,6 +47,7 @@ from patchlens.services.evaluation.datasets import load_cases
 from patchlens.services.evaluation.runner import (
     run_retrieval_evaluation,
     run_review_evaluation,
+    run_test_generation_evaluation,
 )
 
 router = APIRouter(prefix="/evaluation", tags=["evaluation"])
@@ -188,6 +189,14 @@ def create_run(
         )
     elif dataset.kind == "review":
         run = run_review_evaluation(
+            session,
+            dataset=dataset,
+            cases=cases,
+            repository=repository,
+            settings=settings,
+        )
+    elif dataset.kind == "test_generation":
+        run = run_test_generation_evaluation(
             session,
             dataset=dataset,
             cases=cases,

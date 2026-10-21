@@ -1,0 +1,61 @@
+{
+  "name": "test-generation-demo-v1",
+  "version": "1",
+  "kind": "test_generation",
+  "repository": "demo/patchlens-demo",
+  "commit_sha": "demo-local",
+  "description": "Three self-contained target functions and one behaviour-changing mutation each. Generation validity is always measured; execution, pass rate and regression detection are measured only when the subprocess sandbox is explicitly enabled.",
+  "provenance": "Authored for this repository. The target functions and mutations are synthetic and small enough to inspect by hand.",
+  "license_note": "Synthetic fixture; no third-party content.",
+  "limitations": "The bundled default provider is the deterministic mock, whose generated suite is a smoke/importability suite with no behavioural assertion. A default run therefore measures generation validity, not useful regression-test quality; execution metrics remain UNKNOWN unless a sandbox is explicitly enabled, and even then they describe the mock. The dataset is tiny and author-labelled.",
+  "cases": [
+    {
+      "id": "testgen-001",
+      "target_path": "eval_targets/arithmetic.py",
+      "target_symbol": "add",
+      "source": "def add(a: int, b: int) -> int:\n    \"\"\"Return the sum of two integers.\"\"\"\n    return a + b\n",
+      "signature": "def add(a: int, b: int) -> int",
+      "related_tests": ["tests/test_arithmetic.py::test_add"],
+      "mutations": [
+        {
+          "id": "add-subtracts",
+          "mutated_source": "def add(a: int, b: int) -> int:\n    \"\"\"Return the sum of two integers.\"\"\"\n    return a - b\n",
+          "note": "An addition regression that a behavioural test should catch."
+        }
+      ],
+      "notes": "Simple arithmetic contract; useful for checking whether a generated assertion observes the return value."
+    },
+    {
+      "id": "testgen-002",
+      "target_path": "eval_targets/ranges.py",
+      "target_symbol": "clamp",
+      "source": "def clamp(value: int, low: int, high: int) -> int:\n    \"\"\"Clamp value into the inclusive [low, high] range.\"\"\"\n    return max(low, min(value, high))\n",
+      "signature": "def clamp(value: int, low: int, high: int) -> int",
+      "related_tests": ["tests/test_ranges.py::test_clamp_bounds"],
+      "mutations": [
+        {
+          "id": "clamp-ignores-low",
+          "mutated_source": "def clamp(value: int, low: int, high: int) -> int:\n    \"\"\"Clamp value into the inclusive [low, high] range.\"\"\"\n    return min(value, high)\n",
+          "note": "The lower bound is dropped; tests must cover both ends of the range."
+        }
+      ],
+      "notes": "Boundary behaviour makes a weak smoke test visible."
+    },
+    {
+      "id": "testgen-003",
+      "target_path": "eval_targets/parity.py",
+      "target_symbol": "is_even",
+      "source": "def is_even(value: int) -> bool:\n    \"\"\"Return True when value is divisible by two.\"\"\"\n    return value % 2 == 0\n",
+      "signature": "def is_even(value: int) -> bool",
+      "related_tests": ["tests/test_parity.py::test_even_odd"],
+      "mutations": [
+        {
+          "id": "is-even-inverted",
+          "mutated_source": "def is_even(value: int) -> bool:\n    \"\"\"Return True when value is divisible by two.\"\"\"\n    return value % 2 == 1\n",
+          "note": "An inverted predicate that a single even-number assertion should catch."
+        }
+      ],
+      "notes": "Boolean return; checks that generated assertions are not merely importability checks."
+    }
+  ]
+}

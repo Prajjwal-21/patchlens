@@ -145,3 +145,61 @@ def test_seeding_is_idempotent_and_content_changes_require_a_version_bump(sessio
     changed["cases"][0]["query"] = "different query"  # type: ignore[index]
     with pytest.raises(DatasetError, match="bump the version"):
         seed_dataset(session, load_dataset(write(tmp_path / "changed.json", changed)))
+
+
+def _generation_document() -> dict[str, object]:
+    return {
+        "name": "unit-test-generation",
+        "version": "1",
+        "kind": "test_generation",
+        "repository": "patchlens/fixture",
+        "cases": [
+            {
+                "id": "case-1",
+                "target_path": "pkg/math.py",
+                "target_symbol": "add",
+                "source": "def add(a: int, b: int) -> int:\n    return a + b\n",
+                "mutations": [
+                    {
+                        "id": "subtract",
+                        "mutated_source": "def add(a: int, b: int) -> int:\n    return a - b\n",
+                    }
+                ],
+            }
+        ],
+    }
+
+
+def test_test_generation_dataset_round_trips(tmp_path: Path) -> None:
+    dataset = load_dataset(write(tmp_path / "d.json", _generation_document()))
+    assert dataset.kind == "test_generation"
+    assert dataset.cases[0].target_symbol == "add"
+    assert dataset.cases[0].mutations[0].id == "subtract"
+
+
+def test_test_generation_rejects_unsafe_target_path(tmp_path: Path) -> None:
+    document = _generation_document()
+    document["cases"][0]["target_path"] = "../escape.py"  # type: ignore[index]
+    with pytest.raises(DatasetError, match="safe repository-relative"):
+        load_dataset(write(tmp_path / "d.json", document))
+
+
+def test_test_generation_rejects_a_symbol_absent_from_source(tmp_path: Path) -> None:
+    document = _generation_document()
+    document["cases"][0]["target_symbol"] = "missing"  # type: ignore[index]
+    with pytest.raises(DatasetError, match="not defined in its source"):
+        load_dataset(write(tmp_path / "d.json", document))
+
+
+def test_test_generation_rejects_unparseable_source(tmp_path: Path) -> None:
+    document = _generation_document()
+    document["cases"][0]["source"] = "def add(:\n"  # type: ignore[index]
+    with pytest.raises(DatasetError, match="not parseable Python"):
+        load_dataset(write(tmp_path / "d.json", document))
+
+
+def test_test_generation_rejects_a_mutation_that_does_not_change_source(tmp_path: Path) -> None:
+    document = _generation_document()
+    document["cases"][0]["mutations"][0]["mutated_source"] = document["cases"][0]["source"]  # type: ignore[index]
+    with pytest.raises(DatasetError, match="does not change the source"):
+        load_dataset(write(tmp_path / "d.json", document))

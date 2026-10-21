@@ -7,6 +7,7 @@ are immutable once seeded: changing the labels requires bumping ``version``.
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 from pathlib import Path
@@ -17,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from patchlens.core.enums import FindingCategory
+from patchlens.core.security import is_safe_relative_path
 from patchlens.db.models.evaluation import EvalCase, EvalDataset
 from patchlens.services.review.diff import parse_diff
 
@@ -148,7 +150,112 @@ class ReviewDataset(_Base):
         return value
 
 
-Dataset = RetrievalDataset | ReviewDataset
+class TestGenerationMutation(_Base):
+    """A behaviour-changing edit used to measure regression detection.
+
+    A useful generated test passes on the original source and fails on the mutation.
+    The runner never treats a test that fails on both as a detection.
+    """
+
+    id: str
+    mutated_source: str
+    note: str | None = None
+
+
+class TestGenerationCase(_Base):
+    """A self-contained target symbol and optional mutations.
+
+    Source is embedded so the case does not depend on a mutable checkout. Validation
+    checks the target path, parses the source with the standard library AST, and
+    verifies that the named symbol exists. This is dataset validation, not execution.
+    """
+
+    id: str
+    target_path: str
+    target_symbol: str
+    source: str
+    signature: str | None = None
+    related_tests: list[str] = Field(default_factory=list)
+    mutations: list[TestGenerationMutation] = Field(default_factory=list)
+    split: Literal["train", "dev", "test"] = "test"
+    notes: str | None = None
+
+    @field_validator("target_path")
+    @classmethod
+    def _safe_target_path(cls, value: str) -> str:
+        if not value.endswith(".py") or not is_safe_relative_path(value):
+            raise ValueError("target_path must be a safe repository-relative Python file")
+        return value
+
+    @model_validator(mode="after")
+    def _targets_exist_and_mutations_are_unique(self) -> TestGenerationCase:
+        tree = _validate_target_source(self.source, None)
+        _require_symbol(tree, self.target_symbol, case_id=self.id)
+        ids = [mutation.id for mutation in self.mutations]
+        if len(set(ids)) != len(ids):
+            raise ValueError(f"case {self.id!r} has duplicate mutation ids")
+        for mutation in self.mutations:
+            mutated_tree = _validate_target_source(mutation.mutated_source, None)
+            _require_symbol(mutated_tree, self.target_symbol, case_id=self.id)
+            if mutation.mutated_source == self.source:
+                raise ValueError(f"case {self.id!r} mutation {mutation.id!r} does not change the source")
+        return self
+
+
+class TestGenerationDataset(_Base):
+    name: str
+    version: str = "1"
+    kind: Literal["test_generation"]
+    repository: str
+    commit_sha: str | None = None
+    description: str | None = None
+    provenance: str | None = None
+    license_note: str | None = None
+    limitations: str | None = None
+    cases: list[TestGenerationCase]
+
+    @field_validator("cases")
+    @classmethod
+    def _unique_case_ids(cls, value: list[TestGenerationCase]) -> list[TestGenerationCase]:
+        ids = [case.id for case in value]
+        if len(set(ids)) != len(ids):
+            raise ValueError("duplicate case id in dataset")
+        return value
+
+
+Dataset = RetrievalDataset | ReviewDataset | TestGenerationDataset
+
+
+def _validate_target_source(source: str, path: str | None) -> ast.Module:
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError) as exc:
+        label = f" in {path}" if path else ""
+        raise ValueError(f"target source{label} is not parseable Python: {exc}") from exc
+    return tree
+
+
+def _require_symbol(tree: ast.Module, qualified_name: str, *, case_id: str) -> None:
+    """Resolve a (possibly dotted) function/class name in the AST.
+
+    This catches a dataset whose source and target label disagree before a run spends
+    provider calls on a target that cannot exist.
+    """
+    parts = qualified_name.split(".")
+    nodes: list[ast.AST] = list(tree.body)
+    for part in parts:
+        match = next(
+            (
+                node
+                for node in nodes
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+                and node.name == part
+            ),
+            None,
+        )
+        if match is None:
+            raise ValueError(f"case {case_id!r} target {qualified_name!r} is not defined in its source")
+        nodes = list(getattr(match, "body", []))
 
 
 def load_dataset(path: Path) -> Dataset:
@@ -162,13 +269,17 @@ def load_dataset(path: Path) -> Dataset:
     if not isinstance(raw, dict):
         raise DatasetError(f"dataset {path} must be a JSON object")
     kind = raw.get("kind")
-    model: type[RetrievalDataset] | type[ReviewDataset]
+    model: type[RetrievalDataset] | type[ReviewDataset] | type[TestGenerationDataset]
     if kind == "retrieval":
         model = RetrievalDataset
     elif kind == "review":
         model = ReviewDataset
+    elif kind == "test_generation":
+        model = TestGenerationDataset
     else:
-        raise DatasetError(f"dataset {path} has unsupported kind {kind!r} (expected retrieval/review)")
+        raise DatasetError(
+            f"dataset {path} has unsupported kind {kind!r} (expected retrieval/review/test_generation)"
+        )
     try:
         return model.model_validate(raw)
     except ValueError as exc:
@@ -255,6 +366,18 @@ def seed_dataset(session: Session, dataset: Dataset, *, source_path: Path | None
             ]
             payload: dict[str, Any] = {"kind": "retrieval"}
             query = case.query
+        elif isinstance(case, TestGenerationCase):
+            labels = []
+            payload = {
+                "kind": "test_generation",
+                "target_path": case.target_path,
+                "target_symbol": case.target_symbol,
+                "source": case.source,
+                "signature": case.signature,
+                "related_tests": case.related_tests,
+                "mutations": [mutation.model_dump(mode="json") for mutation in case.mutations],
+            }
+            query = case.target_symbol
         else:
             labels = []
             payload = {

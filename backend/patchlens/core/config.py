@@ -194,6 +194,14 @@ class Settings(BaseSettings):
     review_max_findings: int = Field(default=40, ge=1, le=500)
     review_max_hunks: int = Field(default=300, ge=1, le=5000)
 
+    # ------------------------------------------------------- test intelligence
+    #: Candidate tests are generated from changed symbols and related tests. Off by
+    #: default because a real provider may charge for one call per candidate.
+    test_generation_enabled: bool = False
+    test_generation_max_candidates: int = Field(default=3, ge=1, le=10)
+    test_generation_max_source_chars: int = Field(default=6_000, ge=500, le=24_000)
+    test_generation_max_test_chars: int = Field(default=20_000, ge=1_000, le=100_000)
+
     # ------------------------------------------------------------ test runner
     test_execution_mode: TestExecutionMode = "disabled"
     #: Explicit acknowledgement required to execute code on the host machine.
@@ -202,7 +210,7 @@ class Settings(BaseSettings):
     test_execution_memory_mb: int = Field(default=1024, ge=128, le=8192)
     test_execution_cpu_seconds: int = Field(default=60, ge=5, le=1800)
     test_execution_max_output_bytes: int = Field(default=256 * 1024, ge=1024)
-    test_execution_docker_image: str = "python:3.11-slim"
+    test_execution_docker_image: str = "patchlens-test-runner:latest"
     test_execution_network_enabled: bool = False
 
     # --------------------------------------------------------------- security
@@ -230,6 +238,21 @@ class Settings(BaseSettings):
     demo_seed_path: str | None = None
 
     # -------------------------------------------------------------- validators
+    @field_validator("api_auth_token", "redis_url", mode="before")
+    @classmethod
+    def _blank_optional_is_unset(cls, value: object) -> object:
+        """An empty env var means "not configured", not an empty credential.
+
+        Compose and ``.env.example`` both render optional values as ``NAME=``.
+        Treating that as a real secret would make the API require an empty
+        bearer token and treat Redis as configured at an empty URL.
+        """
+        if isinstance(value, SecretStr):
+            value = value.get_secret_value()
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
     @field_validator(
         "cors_origins",
         "excluded_dir_names",
@@ -346,6 +369,17 @@ class Settings(BaseSettings):
             "api_base_url": self.github_api_base_url,
         }
 
+    def test_generation_summary(self) -> dict[str, object]:
+        return {
+            "enabled": self.test_generation_enabled,
+            "max_candidates": self.test_generation_max_candidates,
+            "max_source_chars": self.test_generation_max_source_chars,
+            "max_test_chars": self.test_generation_max_test_chars,
+            "provider": self.llm_provider,
+            "model": self.llm_model if self.llm_provider != "mock" else "deterministic-mock",
+            "is_mock_provider": self.llm_is_mock,
+        }
+
     def test_execution_summary(self) -> dict[str, object]:
         effective = self.test_execution_mode
         reason: str | None = None
@@ -373,6 +407,7 @@ class Settings(BaseSettings):
             "retrieval_strategy": self.retrieval_strategy,
             "reranker": self.reranker,
             "worker_concurrency": self.worker_concurrency,
+            "test_generation": self.test_generation_summary(),
             "test_execution": self.test_execution_summary(),
             "github": self.github_summary(),
             "auth_required": self.api_auth_token is not None,

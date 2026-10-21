@@ -7,7 +7,7 @@ place instead of leaking into list responses.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal, overload
 
 from patchlens.api.schemas import (
     EvalCaseOut,
@@ -23,6 +23,8 @@ from patchlens.api.schemas import (
     RepositoryOut,
     RepositoryVersionOut,
     ReviewOut,
+    TestCandidateDetailOut,
+    TestCandidateOut,
     WebhookDeliveryOut,
 )
 from patchlens.db.models.evaluation import EvalCase, EvalCaseResult, EvalDataset, EvalRun
@@ -30,6 +32,7 @@ from patchlens.db.models.github import GitHubInstallation, WebhookDelivery
 from patchlens.db.models.job import Job
 from patchlens.db.models.repository import Repository, RepositoryVersion
 from patchlens.db.models.review import Finding, FindingFeedback, Review
+from patchlens.db.models.testing import TestCandidate
 
 #: Keys kept in a review's metadata when it is returned to the UI.
 METADATA_KEEP = (
@@ -45,6 +48,8 @@ METADATA_KEEP = (
     "llm_error",
     "degraded",
     "publication",
+    "test_intelligence",
+    "test_generation",
 )
 
 
@@ -84,6 +89,52 @@ def repository_out(repository: Repository, *, latest: RepositoryVersion | None =
         last_index_error=repository.last_index_error,
         latest_version=version_out(latest) if latest is not None else None,
     )
+
+
+@overload
+def test_candidate_out(candidate: TestCandidate, *, detail: Literal[False] = False) -> TestCandidateOut: ...
+
+
+@overload
+def test_candidate_out(candidate: TestCandidate, *, detail: Literal[True]) -> TestCandidateDetailOut: ...
+
+
+def test_candidate_out(
+    candidate: TestCandidate, *, detail: bool = False
+) -> TestCandidateOut | TestCandidateDetailOut:
+    base: dict[str, Any] = {
+        "id": candidate.id,
+        "repository_id": candidate.repository_id,
+        "review_id": candidate.review_id,
+        "finding_id": candidate.finding_id,
+        "target_path": candidate.target_path,
+        "target_symbol": candidate.target_symbol,
+        "suggested_test_path": candidate.suggested_test_path,
+        "rationale": candidate.rationale,
+        "provider": candidate.provider,
+        "model": candidate.model,
+        "is_mock_provider": candidate.is_mock_provider,
+        "status": candidate.status,
+        "executed_at": candidate.executed_at,
+        "sandbox_mode": candidate.sandbox_mode,
+        "sandbox_detail": candidate.sandbox_detail,
+        "exit_code": candidate.exit_code,
+        "duration_ms": candidate.duration_ms,
+        "output_truncated": candidate.output_truncated,
+        "timed_out": candidate.timed_out,
+        "collected_tests": candidate.collected_tests,
+        "run_metadata": candidate.run_metadata or {},
+        "execution_disabled_reason": candidate.execution_disabled_reason,
+        "created_at": candidate.created_at,
+    }
+    if detail:
+        return TestCandidateDetailOut(
+            **base,
+            source=candidate.source,
+            stdout_tail=candidate.stdout_tail,
+            stderr_tail=candidate.stderr_tail,
+        )
+    return TestCandidateOut(**base)
 
 
 def review_metadata_summary(metadata: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -140,6 +191,7 @@ def review_out(
         candidate_test_count=review.candidate_test_count,
         started_at=review.started_at,
         finished_at=review.finished_at,
+        created_at=review.created_at,
         duration_ms=review.duration_ms,
         error=review.error,
         usage=review.usage or {},

@@ -54,6 +54,7 @@ def get_runtime_settings(settings: Settings = Depends(settings_dependency)) -> S
             "job_timeout_seconds": settings.job_timeout_seconds,
             "llm_timeout_seconds": settings.llm_timeout_seconds,
         },
+        test_generation=settings.test_generation_summary(),
         test_execution={
             "mode": settings.test_execution_mode,
             "network_enabled": settings.test_execution_network_enabled,

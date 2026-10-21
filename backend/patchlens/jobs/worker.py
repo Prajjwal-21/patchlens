@@ -27,6 +27,7 @@ from patchlens.core.logging import describe_exception, get_logger, log_extra
 from patchlens.db.models.job import Job
 from patchlens.db.session import Database, get_database
 from patchlens.jobs.handlers import JobFailure, NonRetryableJobError, handler_for
+from patchlens.jobs.notify import RedisJobWakeup
 from patchlens.jobs.queue import claim_next, complete, fail, recover_expired_leases
 
 logger = get_logger(__name__)
@@ -74,6 +75,7 @@ class Worker:
         self.worker_id = worker_id or self.settings.worker_id or f"worker-{uuid.uuid4().hex[:8]}"
         self.kinds = kinds
         self._stop = threading.Event()
+        self._wakeup = threading.Event()
 
     # ------------------------------------------------------------------ public
     @property
@@ -118,12 +120,17 @@ class Worker:
                 kinds=self.kinds,
             ),
         )
-        if concurrency <= 1:
-            executed = self._loop(max_jobs=max_jobs, idle_cycles=idle_cycles)
-        else:
-            executed = self._parallel_loop(
-                concurrency=concurrency, max_jobs=max_jobs, idle_cycles=idle_cycles
-            )
+        wakeup = RedisJobWakeup(self.settings, self._wakeup.set)
+        wakeup.start()
+        try:
+            if concurrency <= 1:
+                executed = self._loop(max_jobs=max_jobs, idle_cycles=idle_cycles)
+            else:
+                executed = self._parallel_loop(
+                    concurrency=concurrency, max_jobs=max_jobs, idle_cycles=idle_cycles
+                )
+        finally:
+            wakeup.stop()
         logger.info("worker stopped", extra=log_extra(worker=self.worker_id, executed=executed))
         return executed
 
@@ -172,8 +179,7 @@ class Worker:
                             if max_jobs is not None and counters["jobs"] >= max_jobs:
                                 self._stop.set()
                                 return
-                if not self._stop.wait(self.settings.worker_poll_interval_seconds):
-                    continue
+                self._wait_for_work()
 
         threads = [
             threading.Thread(target=_worker_thread, args=(i,), name=f"patchlens-worker-{i}")
@@ -254,8 +260,17 @@ class Worker:
             result={**(result or {}), "duration_ms": int((time.perf_counter() - started) * 1000)},
         )
 
+    def _wait_for_work(self) -> None:
+        """Wait for the poll interval, or less when Redis reports a new job."""
+        deadline = time.monotonic() + self.settings.worker_poll_interval_seconds
+        while not self._stop.is_set():
+            remaining = deadline - time.monotonic()
+            if remaining <= 0 or self._wakeup.wait(timeout=remaining):
+                break
+        self._wakeup.clear()
+
     def _sleep(self) -> None:
-        self._stop.wait(self.settings.worker_poll_interval_seconds)
+        self._wait_for_work()
 
 
 def recover_expired_leases_threadsafe(worker: Worker) -> int:

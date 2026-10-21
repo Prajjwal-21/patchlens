@@ -12,8 +12,8 @@ VENV := .venv
 PORT ?= 8000
 
 .PHONY: help setup lock env-example fmt lint typecheck test test-cov test-fast ci \
-        run worker migrate migration init-db demo-repo demo-review eval-seed eval-run clean \
-        compose-up compose-down frontend-install frontend-dev frontend-lint frontend-build
+        run worker migrate migration init-db demo-repo demo-review demo-tests eval-seed eval-run clean \
+        test-runner-image compose-up compose-down frontend-install frontend-dev frontend-lint frontend-test frontend-build
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -56,7 +56,7 @@ test-cov: ## Run tests with a coverage report
 test-fast: ## Run only tests that need no database writes
 	cd $(BACKEND) && ../$(PY) -m pytest tests/unit -q
 
-ci: lint typecheck test ## What CI runs
+ci: lint typecheck test frontend-lint frontend-test frontend-build ## What CI runs
 
 ## ------------------------------------------------------------------- database
 init-db: ## Create tables in a development database (SQLite by default)
@@ -86,16 +86,26 @@ demo-review: ## Review the demo pull request against the indexed demo repository
 		--repository-id $$(cat "$(CURDIR)/.demo-repository-id") \
 		--diff-file "$(CURDIR)/examples/demo-repo/pr.diff" --commit-sha demo-pr --include-rejected
 
+demo-tests: ## Generate candidate tests for the indexed demo (generation only)
+	cd $(BACKEND) && ../$(PY) -m patchlens.cli test-generate \
+		--repository-id $$(cat "$(CURDIR)/.demo-repository-id") \
+		--target app/calculator.py::add
+	cd $(BACKEND) && ../$(PY) -m patchlens.cli test-status
+
 eval-seed: ## Load the bundled evaluation datasets into the database
 	cd $(BACKEND) && ../$(PY) -m patchlens.cli eval-seed --path eval/datasets
 
-eval-run: ## Run the bundled retrieval and review evaluations
+eval-run: ## Run the bundled retrieval, review and test-generation evaluations
 	cd $(BACKEND) && ../$(PY) -m patchlens.cli eval-run --dataset retrieval-demo-v1
 	cd $(BACKEND) && ../$(PY) -m patchlens.cli eval-run --dataset review-demo-v1
+	cd $(BACKEND) && ../$(PY) -m patchlens.cli eval-run --dataset test-generation-demo-v1
+
+test-runner-image: ## Build the isolated pytest image used by the Docker execution tier
+	docker build -t patchlens-test-runner:latest docker/test-runner
 
 ## ------------------------------------------------------------------- docker
-compose-up: ## PostgreSQL + pgvector and Redis for the production-shaped path
-	docker compose up -d
+compose-up: ## Start the full Compose stack (PostgreSQL/pgvector, Redis, API, worker)
+	docker compose up -d --build
 
 compose-down: ## Stop the Compose services
 	docker compose down
@@ -109,6 +119,9 @@ frontend-dev: ## Run the Next.js dev server
 
 frontend-lint: ## Type-check and lint the frontend
 	cd frontend && npm run lint && npm run typecheck
+
+frontend-test: ## Run frontend unit tests
+	cd frontend && npm test
 
 frontend-build: ## Production build of the frontend
 	cd frontend && npm run build

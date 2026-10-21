@@ -14,13 +14,16 @@ import pytest
 from patchlens.core.errors import ProviderError
 from patchlens.db.models.job import Job
 from patchlens.db.models.repository import Repository
+from patchlens.db.models.testing import TestCandidate as CandidateModel
 from patchlens.jobs import handlers as handlers_module
 from patchlens.jobs.handlers import (
     HANDLERS,
     JobFailure,
     NonRetryableJobError,
+    handle_generate_tests,
     handle_index_repository,
     handle_review_pull_request,
+    handle_run_candidate_test,
     handler_for,
 )
 from patchlens.jobs.queue import enqueue
@@ -34,7 +37,12 @@ def make_job(session, kind: str, payload: dict) -> Job:
 
 class TestHandlerRegistry:
     def test_every_registered_kind_resolves(self) -> None:
-        assert set(HANDLERS) == {"index_repository", "review_pull_request"}
+        assert set(HANDLERS) == {
+            "index_repository",
+            "review_pull_request",
+            "generate_tests",
+            "run_candidate_test",
+        }
         for kind in HANDLERS:
             assert handler_for(kind) is HANDLERS[kind]
 
@@ -376,3 +384,124 @@ class TestWorkerLoop:
             assert job is not None
             assert job.status == "succeeded"
             assert job.worker_id == "fresh-worker"
+
+
+class TestTestIntelligenceHandlers:
+    def test_generate_tests_from_indexed_symbol(self, session, app_settings, demo_repo: Path) -> None:
+        from tests.conftest import index_repository
+
+        repository = register_repository(session, demo_repo)
+        index_repository(session, repository, demo_repo, app_settings, commit_sha="commit-1")
+        session.commit()
+        settings = app_settings.model_copy(update={"test_generation_enabled": True})
+        job = make_job(
+            session,
+            "generate_tests",
+            {
+                "repository_id": repository.id,
+                "targets": [{"path": "demoapp/calculator.py", "qualified_name": "add"}],
+            },
+        )
+        result = handle_generate_tests(session, job, settings)
+        assert result["generated"] == 1
+        assert result["source"] == "indexed_snapshot"
+        candidate = session.get(CandidateModel, result["candidate_ids"][0])
+        assert candidate is not None
+        assert candidate.status == "execution_disabled"
+        assert candidate.executed_at is None
+
+    def test_generate_tests_disabled_after_queue_is_non_retryable(
+        self, session, app_settings, demo_repo: Path
+    ) -> None:
+        repository = register_repository(session, demo_repo)
+        session.commit()
+        job = make_job(
+            session,
+            "generate_tests",
+            {"repository_id": repository.id, "targets": [{"path": "x.py", "qualified_name": "x"}]},
+        )
+        with pytest.raises(NonRetryableJobError, match="disabled"):
+            handle_generate_tests(session, job, app_settings)
+
+    def test_generate_tests_provider_failure_is_retryable(
+        self, session, app_settings, demo_repo: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from tests.conftest import index_repository
+
+        repository = register_repository(session, demo_repo)
+        index_repository(session, repository, demo_repo, app_settings, commit_sha="commit-1")
+        session.commit()
+        settings = app_settings.model_copy(update={"test_generation_enabled": True})
+
+        def explode(*args, **kwargs):
+            raise ProviderError("provider unavailable")
+
+        monkeypatch.setattr("patchlens.jobs.handlers.build_llm_provider", explode)
+        job = make_job(
+            session,
+            "generate_tests",
+            {
+                "repository_id": repository.id,
+                "targets": [{"path": "demoapp/calculator.py", "qualified_name": "add"}],
+            },
+        )
+        with pytest.raises(JobFailure) as excinfo:
+            handle_generate_tests(session, job, settings)
+        assert excinfo.value.retryable is True
+
+    def test_run_candidate_executes_and_records_status(self, session, app_settings, demo_repo: Path) -> None:
+        repository = register_repository(session, demo_repo)
+        candidate = CandidateModel(
+            repository_id=repository.id,
+            target_path="demoapp/calculator.py",
+            target_symbol="add",
+            suggested_test_path="tests/test_job_ok.py",
+            source="def test_ok() -> None:\n    assert True\n",
+            provider="stub",
+            model="stub-1",
+            is_mock_provider=False,
+            status="queued",
+        )
+        session.add(candidate)
+        session.commit()
+        settings = app_settings.model_copy(
+            update={"test_execution_mode": "subprocess", "allow_local_test_execution": True}
+        )
+        job = make_job(session, "run_candidate_test", {"candidate_id": candidate.id})
+        result = handle_run_candidate_test(session, job, settings)
+        assert result["executed"] is True
+        assert result["status"] == "passed"
+        refreshed = session.get(CandidateModel, candidate.id)
+        assert refreshed is not None
+        assert refreshed.status == "passed"
+        assert refreshed.executed_at is not None
+
+    def test_run_candidate_without_sandbox_is_recorded_as_disabled(
+        self, session, app_settings, demo_repo: Path
+    ) -> None:
+        repository = register_repository(session, demo_repo)
+        candidate = CandidateModel(
+            repository_id=repository.id,
+            target_path="demoapp/calculator.py",
+            target_symbol="add",
+            suggested_test_path="tests/test_job_disabled.py",
+            source="def test_ok() -> None:\n    assert True\n",
+            provider="stub",
+            model="stub-1",
+            is_mock_provider=False,
+            status="queued",
+        )
+        session.add(candidate)
+        session.commit()
+        job = make_job(session, "run_candidate_test", {"candidate_id": candidate.id})
+        result = handle_run_candidate_test(session, job, app_settings)
+        assert result["executed"] is False
+        refreshed = session.get(CandidateModel, candidate.id)
+        assert refreshed is not None
+        assert refreshed.status == "execution_disabled"
+        assert refreshed.executed_at is None
+
+    def test_run_candidate_missing_row_is_non_retryable(self, session, app_settings) -> None:
+        job = make_job(session, "run_candidate_test", {"candidate_id": "tst_missing"})
+        with pytest.raises(NonRetryableJobError, match="not found"):
+            handle_run_candidate_test(session, job, app_settings)

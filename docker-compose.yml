@@ -6,12 +6,16 @@
 #   docker compose up --build
 #   curl http://127.0.0.1:8000/readyz
 #
-# NOTE: this file has not been executed in the development environment that wrote
-# it (no Docker daemon was available). The application paths it configures are
-# covered by tests that run against SQLite; treat the Compose stack as untested
-# until `docker compose up` has been run and recorded.
+# Verified end to end on 2026-10-21: migrations, API readiness, worker startup,
+# PostgreSQL + pgvector retrieval, and the Docker test-runner tier. The demo
+# fixtures are mounted read-only so the same CLI commands work inside the API
+# container.
 
 name: patchlens
+
+x-backend-volumes: &backend-volumes
+  - ./examples:/workspace/examples:ro
+  - ./backend/eval:/workspace/eval:ro
 
 x-backend-environment: &backend-environment
   ENVIRONMENT: ${ENVIRONMENT:-development}
@@ -80,8 +84,15 @@ services:
       context: ./backend
     command: ["python", "-m", "patchlens.cli", "serve", "--host", "0.0.0.0", "--port", "8000"]
     environment: *backend-environment
+    volumes: *backend-volumes
     ports:
       - "${API_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
     depends_on:
       db:
         condition: service_healthy
@@ -96,6 +107,7 @@ services:
       context: ./backend
     command: ["python", "-m", "patchlens.cli", "worker"]
     environment: *backend-environment
+    volumes: *backend-volumes
     # Indexing and reviewing a large repository can exceed the default 10s grace.
     stop_grace_period: 30s
     depends_on:

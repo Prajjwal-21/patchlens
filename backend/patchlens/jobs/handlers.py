@@ -17,11 +17,14 @@ from patchlens.core.logging import describe_exception, get_logger, log_extra
 from patchlens.db.models.job import Job
 from patchlens.db.models.repository import Repository
 from patchlens.db.models.review import Finding, Review
+from patchlens.db.models.testing import TestCandidate
 from patchlens.services.github.client import GitHubClient, build_github_client
 from patchlens.services.github.publisher import GitHubPublisher
 from patchlens.services.ingestion.indexer import RepositoryIndexer
-from patchlens.services.providers.factory import build_embedding_provider
+from patchlens.services.providers.factory import build_embedding_provider, build_llm_provider
 from patchlens.services.review.pipeline import run_review
+from patchlens.services.testing.execution import execute_candidate
+from patchlens.services.testing.generator import generate_candidates, targets_from_indexed
 
 logger = get_logger(__name__)
 
@@ -194,6 +197,88 @@ def handle_review_pull_request(session: Session, job: Job, settings: Settings) -
     }
 
 
+def handle_generate_tests(session: Session, job: Job, settings: Settings) -> dict[str, Any]:
+    """Generate candidates for explicitly requested indexed symbols."""
+    if not settings.test_generation_enabled:
+        raise NonRetryableJobError(
+            "test generation was disabled after this job was queued (TEST_GENERATION_ENABLED=false)",
+            error_type="TestGenerationDisabled",
+        )
+    payload = job.payload or {}
+    repository = session.get(Repository, str(payload.get("repository_id") or ""))
+    if repository is None:
+        raise NonRetryableJobError("repository not found", error_type="RepositoryNotFound")
+    requested_raw = payload.get("targets")
+    if not isinstance(requested_raw, list) or not requested_raw:
+        raise NonRetryableJobError("job payload has no test-generation targets", error_type="MissingTargets")
+    requested: list[tuple[str, str]] = []
+    for item in requested_raw[:10]:
+        if not isinstance(item, dict):
+            continue
+        path = str(item.get("path") or "")
+        qualified_name = str(item.get("qualified_name") or "")
+        if path and qualified_name:
+            requested.append((path, qualified_name))
+    targets = targets_from_indexed(
+        session,
+        repository=repository,
+        requested=requested,
+        limit=settings.test_generation_max_candidates,
+    )
+    if not targets:
+        raise NonRetryableJobError(
+            "no requested symbol with source exists in the indexed snapshot",
+            error_type="NoIndexedTarget",
+        )
+
+    provider = None
+    try:
+        provider = build_llm_provider(settings)
+        generated = generate_candidates(
+            session,
+            repository=repository,
+            targets=targets,
+            settings=settings,
+            llm_provider=provider,
+            commit_sha=repository.indexed_commit_sha,
+        )
+    except ProviderError as exc:
+        raise JobFailure(exc.message, retryable=True, error_type=type(exc).__name__) from exc
+    finally:
+        if provider is not None:
+            provider.close()
+    session.flush()
+    return {
+        **generated.summary(),
+        "candidate_ids": [candidate.id for candidate in generated.candidates],
+        "targets": len(targets),
+        "source": "indexed_snapshot",
+        "limitation": (
+            "generation used the latest indexed snapshot, not necessarily the pull-request head; "
+            "review-generated candidates use post-change source"
+        ),
+    }
+
+
+def handle_run_candidate_test(session: Session, job: Job, settings: Settings) -> dict[str, Any]:
+    """Execute one stored candidate in the configured sandbox (or record why not)."""
+    payload = job.payload or {}
+    candidate = session.get(TestCandidate, str(payload.get("candidate_id") or ""))
+    if candidate is None:
+        raise NonRetryableJobError("test candidate not found", error_type="TestCandidateNotFound")
+    outcome = execute_candidate(session, candidate, settings)
+    session.commit()
+    return {
+        **outcome.to_dict(),
+        "execution_mode": settings.test_execution_mode,
+        "note": (
+            "test execution ran in the configured sandbox; subprocess mode is not a security boundary"
+            if outcome.executed
+            else "candidate was not executed; the stored reason explains why"
+        ),
+    }
+
+
 def _fetch_pull_request_diff(repository: Repository, payload: dict[str, Any], settings: Settings) -> str:
     number = payload.get("pull_request_number")
     installation_id = payload.get("installation_id") or repository.installation_id
@@ -227,6 +312,8 @@ def _finding_publish_states(session: Session, review_id: str) -> dict[str, int]:
 HANDLERS: dict[str, Handler] = {
     "index_repository": handle_index_repository,
     "review_pull_request": handle_review_pull_request,
+    "generate_tests": handle_generate_tests,
+    "run_candidate_test": handle_run_candidate_test,
 }
 
 
@@ -239,7 +326,9 @@ __all__ = [
     "Handler",
     "JobFailure",
     "NonRetryableJobError",
+    "handle_generate_tests",
     "handle_index_repository",
     "handle_review_pull_request",
+    "handle_run_candidate_test",
     "handler_for",
 ]

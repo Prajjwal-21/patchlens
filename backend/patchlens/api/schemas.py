@@ -82,6 +82,22 @@ class RepositoryOut(BaseModel):
     latest_version: RepositoryVersionOut | None = None
 
 
+class CodeSymbolOut(BaseModel):
+    id: str
+    path: str
+    language: str
+    kind: str
+    name: str
+    qualified_name: str
+    parent_qualified_name: str | None
+    signature: str | None
+    docstring: str | None
+    start_line: int
+    end_line: int
+    is_test: bool
+    source_truncated: bool
+
+
 class RepositoryCreateRequest(BaseModel):
     owner: str = Field(min_length=1, max_length=255)
     name: str = Field(min_length=1, max_length=255)
@@ -129,6 +145,7 @@ class ReviewOut(BaseModel):
     candidate_test_count: int
     started_at: datetime | None
     finished_at: datetime | None
+    created_at: datetime
     duration_ms: int | None
     error: str | None
     usage: dict[str, Any] = Field(default_factory=dict)
@@ -207,6 +224,11 @@ class FindingListResponse(BaseModel):
     pagination: Pagination
 
 
+class CodeSymbolListResponse(BaseModel):
+    items: list[CodeSymbolOut]
+    pagination: Pagination
+
+
 class FeedbackListResponse(BaseModel):
     items: list[FindingFeedbackOut]
     aggregate: dict[str, Any]
@@ -240,6 +262,96 @@ class JobListResponse(BaseModel):
     pagination: Pagination
 
 
+# ------------------------------------------------------------- test intelligence
+class TestCandidateOut(BaseModel):
+    id: str
+    repository_id: str
+    review_id: str | None
+    finding_id: str | None
+    target_path: str
+    target_symbol: str | None
+    suggested_test_path: str
+    rationale: str | None
+    provider: str
+    model: str
+    is_mock_provider: bool
+    status: str
+    executed_at: datetime | None
+    sandbox_mode: str | None
+    sandbox_detail: str | None
+    exit_code: int | None
+    duration_ms: int | None
+    output_truncated: bool
+    timed_out: bool
+    collected_tests: int | None
+    run_metadata: dict[str, Any] = Field(default_factory=dict)
+    execution_disabled_reason: str | None
+    created_at: datetime
+
+
+class TestCandidateDetailOut(TestCandidateOut):
+    source: str
+    stdout_tail: str | None
+    stderr_tail: str | None
+
+
+class TestCandidateListResponse(BaseModel):
+    items: list[TestCandidateOut]
+    pagination: Pagination
+
+
+class TestGenerationTarget(BaseModel):
+    path: str = Field(min_length=1, max_length=1_024)
+    qualified_name: str = Field(min_length=1, max_length=1_024)
+
+
+class TestGenerationRequest(BaseModel):
+    targets: list[TestGenerationTarget] = Field(min_length=1, max_length=10)
+    wait: bool = False
+
+
+class TestGenerationResponse(BaseModel):
+    candidates: list[TestCandidateOut]
+    job_id: str | None = None
+    executed_synchronously: bool
+    note: str | None = None
+
+
+class TestExecutionRequest(BaseModel):
+    wait: bool = False
+
+
+class TestExecutionResponse(BaseModel):
+    candidate: TestCandidateDetailOut
+    job_id: str | None = None
+    executed_synchronously: bool
+    note: str | None = None
+
+
+class TestExecutionStatusOut(BaseModel):
+    requested_mode: str
+    effective_mode: str
+    available: bool
+    reason: str | None
+    detail: str
+    limits: dict[str, Any] = Field(default_factory=dict)
+
+
+class OverviewResponse(BaseModel):
+    """Persisted dashboard aggregates. Missing denominators are ``null``, not zero."""
+
+    repositories: dict[str, Any]
+    reviews: dict[str, Any]
+    findings: dict[str, Any]
+    jobs: dict[str, Any]
+    test_intelligence: dict[str, Any]
+    evaluation: dict[str, Any]
+    severity_order: list[str] = Field(default_factory=list)
+    recent_reviews: list[ReviewOut] = Field(default_factory=list)
+    recent_findings: list[FindingOut] = Field(default_factory=list)
+    recent_jobs: list[JobOut] = Field(default_factory=list)
+
+
 class SettingsResponse(BaseModel):
     app_name: str
     version: str
@@ -250,6 +362,7 @@ class SettingsResponse(BaseModel):
     retrieval: dict[str, Any]
     security: dict[str, Any]
     limits: dict[str, Any]
+    test_generation: dict[str, Any]
     test_execution: dict[str, Any]
     github: dict[str, Any]
 
@@ -452,6 +565,7 @@ __all__ = [
     "JobOut",
     "MetaResponse",
     "OkResponse",
+    "OverviewResponse",
     "Pagination",
     "RepositoryCreateRequest",
     "RepositoryOut",

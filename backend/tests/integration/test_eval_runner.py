@@ -24,6 +24,7 @@ from patchlens.services.evaluation.runner import (
     dataset_cases,
     run_retrieval_evaluation,
     run_review_evaluation,
+    run_test_generation_evaluation,
 )
 from patchlens.services.review.diff import apply_hunks_to_text, parse_diff
 from tests.conftest import index_repository, register_repository
@@ -311,3 +312,93 @@ def _repository(session) -> Repository:
     repository = session.scalar(select(Repository).where(Repository.full_name == "patchlens/fixture"))
     assert repository is not None
     return repository
+
+
+def generation_document() -> dict:
+    return {
+        "name": "it-test-generation",
+        "version": "1",
+        "kind": "test_generation",
+        "repository": "patchlens/fixture",
+        "commit_sha": "commit-1",
+        "cases": [
+            {
+                "id": "add",
+                "target_path": "eval_targets/arithmetic.py",
+                "target_symbol": "add",
+                "source": "def add(a: int, b: int) -> int:\n    return a + b\n",
+                "signature": "def add(a: int, b: int) -> int",
+                "mutations": [
+                    {
+                        "id": "add-subtracts",
+                        "mutated_source": "def add(a: int, b: int) -> int:\n    return a - b\n",
+                    }
+                ],
+            }
+        ],
+    }
+
+
+def test_test_generation_run_records_unknown_execution_without_a_sandbox(
+    session, app_settings, demo_repo, tmp_path
+) -> None:
+    repository = register_repository(session, demo_repo)
+    session.flush()
+    dataset = seed(tmp_path, session, generation_document())
+    run = run_test_generation_evaluation(
+        session,
+        dataset=dataset,
+        cases=dataset_cases(session, dataset),
+        repository=repository,  # type: ignore[arg-type]
+        settings=app_settings,
+    )
+    session.flush()
+    assert run.status == "succeeded", run.error
+    assert run.metrics["validity_rate"] == 1.0
+    assert run.metrics["executed"] == 0
+    assert run.metrics["execution_rate"] is None
+    assert run.metrics["pass_rate_on_original"] is None
+    assert run.metrics["regression_detection_rate"] is None
+    assert run.metrics["cost_usd"] is None
+    assert run.metrics["provider_is_mock"] is True
+    assert any("UNKNOWN" in unknown for unknown in run.metrics["unknowns"])
+    assert any("UNKNOWN" in limitation for limitation in run.limitations)
+    result = session.scalar(select(EvalCaseResult).where(EvalCaseResult.run_id == run.id))
+    assert result is not None
+    assert result.strategy == "test_generation"
+    assert result.metrics["valid"] == 1
+    assert result.metrics["executed"] is False
+
+
+def test_test_generation_run_executes_and_scores_mutations_when_opted_in(
+    session, app_settings, demo_repo, tmp_path
+) -> None:
+    repository = register_repository(session, demo_repo)
+    session.flush()
+    dataset = seed(tmp_path, session, generation_document())
+    settings = app_settings.model_copy(
+        update={"test_execution_mode": "subprocess", "allow_local_test_execution": True}
+    )
+    run = run_test_generation_evaluation(
+        session,
+        dataset=dataset,
+        cases=dataset_cases(session, dataset),
+        repository=repository,  # type: ignore[arg-type]
+        settings=settings,
+    )
+    session.flush()
+    assert run.status == "succeeded", run.error
+    assert run.metrics["validity_rate"] == 1.0
+    assert run.metrics["execution_rate"] == 1.0
+    result = session.scalar(select(EvalCaseResult).where(EvalCaseResult.run_id == run.id))
+    assert result is not None
+    assert result.metrics["executed"] is True
+    # The deterministic mock's smoke suite passes but does not observe behaviour, so
+    # it cannot detect the mutation. This is a measured result, not an execution error.
+    assert result.metrics["passed_on_original"] is True
+    assert run.metrics["pass_rate_on_original"] == 1.0
+    assert result.metrics["mutations_evaluated"] == 1
+    assert result.metrics["mutations_detected"] == 0
+    assert run.metrics["regression_detection_rate"] == 0.0
+    assert any("cost_usd" in unknown for unknown in run.metrics["unknowns"])
+    assert run.metrics["execution_latency_ms"]["p50"] is not None

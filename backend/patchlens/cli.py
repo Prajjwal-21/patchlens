@@ -81,6 +81,34 @@ def build_parser() -> argparse.ArgumentParser:
         "--include-rejected", action="store_true", help="print rejected/deduplicated findings too"
     )
     review.add_argument("--queue", action="store_true", help="enqueue the job instead of running it inline")
+    review.add_argument(
+        "--generate-tests",
+        action="store_true",
+        help="enable candidate generation for this review (overrides TEST_GENERATION_ENABLED)",
+    )
+
+    subparsers.add_parser("test-status", help="show the effective test-execution sandbox and limits")
+    test_candidates = subparsers.add_parser("test-candidates", help="list generated test candidates")
+    test_candidates.add_argument("--review-id", default=None)
+    test_candidates.add_argument("--repository-id", default=None)
+    test_candidates.add_argument("--status", default=None)
+    test_candidates.add_argument("--limit", type=int, default=50)
+
+    test_generate = subparsers.add_parser(
+        "test-generate", help="generate candidates for symbols in the latest indexed snapshot"
+    )
+    test_generate.add_argument("--repository-id", required=True)
+    test_generate.add_argument(
+        "--target",
+        action="append",
+        required=True,
+        help="path::qualified_name; repeat for multiple targets",
+    )
+
+    test_execute = subparsers.add_parser(
+        "test-execute", help="execute one candidate in the configured sandbox"
+    )
+    test_execute.add_argument("--candidate-id", required=True)
 
     jobs = subparsers.add_parser("jobs", help="list recent jobs")
     jobs.add_argument("--limit", type=int, default=20)
@@ -124,6 +152,10 @@ def main(argv: list[str] | None = None) -> int:
         "repo-list": _cmd_repo_list,
         "index": _cmd_index,
         "review": _cmd_review,
+        "test-status": _cmd_test_status,
+        "test-candidates": _cmd_test_candidates,
+        "test-generate": _cmd_test_generate,
+        "test-execute": _cmd_test_execute,
         "jobs": _cmd_jobs,
         "config": _cmd_config,
         "eval-seed": _cmd_eval_seed,
@@ -316,6 +348,8 @@ def _cmd_index(args: argparse.Namespace, settings: Settings) -> int:
 
 
 def _cmd_review(args: argparse.Namespace, settings: Settings) -> int:
+    if args.generate_tests:
+        settings = settings.model_copy(update={"test_generation_enabled": True})
     if args.diff_file == "-":
         diff_text = sys.stdin.read()
     else:
@@ -383,12 +417,15 @@ def _cmd_review(args: argparse.Namespace, settings: Settings) -> int:
             "verified_findings": review.verified_finding_count,
             "warnings": warnings,
             "error": review.error,
+            "candidate_tests": review.candidate_test_count,
+            "test_generation": (review.metadata_json or {}).get("test_generation"),
             "items": findings,
         }
     lines = [
         f"review {payload['review_id']} {payload['status']} "
         f"(provider={payload['provider']}{' MOCK' if payload['is_mock_provider'] else ''})",
         f"findings: {payload['findings']} (verified: {payload['verified_findings']})",
+        f"candidate tests: {payload['candidate_tests']}",
     ]
     for item in findings:
         marker = "!" if item["verification_status"] == "verified" else "?"
@@ -396,12 +433,207 @@ def _cmd_review(args: argparse.Namespace, settings: Settings) -> int:
             f"  {marker} [{item['severity']}] {item['verification_status']:<24} {item['rule_id']:<34} "
             f"{item['path']}:{item['start_line']} {item['title']}"
         )
+    generation = cast(dict[str, Any], payload.get("test_generation") or {})
+    if generation:
+        lines.append(
+            f"test generation: {generation.get('state')} "
+            f"(generated={generation.get('generated')}, rejected={generation.get('rejected')})"
+        )
     if warnings:
         lines.append("warnings: " + "; ".join(warnings))
     if payload["error"]:
         lines.append(f"error: {payload['error']}")
     _emit(args, payload, human="\n".join(lines))
     return 0 if payload["status"] == "succeeded" else 1
+
+
+def _cmd_test_status(args: argparse.Namespace, settings: Settings) -> int:
+    from patchlens.services.testing.execution import resolve_sandbox
+
+    status = resolve_sandbox(settings)
+    _emit(
+        args,
+        status.to_dict(),
+        human=(
+            f"execution: available={status.available} mode={status.effective_mode}\n"
+            f"reason: {status.reason or '-'}\n"
+            f"detail: {status.detail}\n"
+            f"limits: timeout={status.limits['timeout_seconds']}s "
+            f"memory={status.limits['memory_mb']}MB network={status.limits['network_enabled']}"
+        ),
+    )
+    return 0
+
+
+def _cmd_test_candidates(args: argparse.Namespace, settings: Settings) -> int:
+    from sqlalchemy import select
+
+    from patchlens.db.models.testing import TestCandidate
+
+    database = _read_session_or_hint(settings)
+    with database.read_session() as session:
+        statement = select(TestCandidate).order_by(TestCandidate.created_at.desc()).limit(args.limit)
+        if args.review_id:
+            statement = statement.where(TestCandidate.review_id == args.review_id)
+        if args.repository_id:
+            statement = statement.where(TestCandidate.repository_id == args.repository_id)
+        if args.status:
+            statement = statement.where(TestCandidate.status == args.status)
+        rows = list(session.scalars(statement))
+        payload = [
+            {
+                "id": row.id,
+                "review_id": row.review_id,
+                "repository_id": row.repository_id,
+                "target": f"{row.target_path}::{row.target_symbol}",
+                "test_path": row.suggested_test_path,
+                "status": row.status,
+                "provider": row.provider,
+                "model": row.model,
+                "is_mock_provider": row.is_mock_provider,
+                "executed_at": row.executed_at,
+                "exit_code": row.exit_code,
+                "execution_disabled_reason": row.execution_disabled_reason,
+            }
+            for row in rows
+        ]
+    _emit(
+        args,
+        {"candidates": payload},
+        human="\n".join(
+            f"{item['id']} {item['status']:<20} {item['target']:<40} -> {item['test_path']} "
+            f"({'MOCK' if item['is_mock_provider'] else item['provider']})"
+            for item in payload
+        )
+        or "no test candidates",
+    )
+    return 0
+
+
+def _cmd_test_generate(args: argparse.Namespace, settings: Settings) -> int:
+    from patchlens.services.providers.factory import build_llm_provider
+    from patchlens.services.testing.generator import generate_candidates, targets_from_indexed
+
+    requested: list[tuple[str, str]] = []
+    for item in args.target:
+        path, separator, symbol = item.partition("::")
+        if not separator or not path or not symbol:
+            print(f"invalid --target {item!r}; expected path::qualified_name", file=sys.stderr)
+            return 2
+        requested.append((path, symbol))
+    database = get_database()
+    with database.session() as session:
+        repository = session.get(Repository, args.repository_id)
+        if repository is None:
+            print(f"repository {args.repository_id} not found", file=sys.stderr)
+            return 1
+        effective = settings.model_copy(update={"test_generation_enabled": True})
+        targets = targets_from_indexed(
+            session,
+            repository=repository,
+            requested=requested,
+            limit=effective.test_generation_max_candidates,
+        )
+        if not targets:
+            print(
+                "no requested symbol with source was found in the latest indexed snapshot; "
+                "index the repository first",
+                file=sys.stderr,
+            )
+            return 1
+        provider = build_llm_provider(effective)
+        try:
+            generated = generate_candidates(
+                session,
+                repository=repository,
+                targets=targets,
+                settings=effective,
+                llm_provider=provider,
+                commit_sha=repository.indexed_commit_sha,
+            )
+        finally:
+            provider.close()
+        session.commit()
+        candidates = [
+            {
+                "id": candidate.id,
+                "target": f"{candidate.target_path}::{candidate.target_symbol}",
+                "test_path": candidate.suggested_test_path,
+                "status": candidate.status,
+                "provider": candidate.provider,
+                "is_mock_provider": candidate.is_mock_provider,
+                "execution_disabled_reason": candidate.execution_disabled_reason,
+            }
+            for candidate in generated.candidates
+        ]
+        payload = {
+            "source": "indexed_snapshot",
+            "generated": len(candidates),
+            "rejected": generated.rejected,
+            "candidates": candidates,
+            "note": (
+                "generation used the latest indexed snapshot, not a pull-request head; "
+                "generation is not execution"
+            ),
+        }
+    _emit(
+        args,
+        payload,
+        human="\n".join(
+            [
+                f"generated {len(candidates)} candidate(s), rejected {len(generated.rejected)}",
+                *[
+                    f"  {item['id']} {item['status']:<20} {item['target']} -> {item['test_path']}"
+                    for item in candidates
+                ],
+            ]
+        ),
+    )
+    return 0
+
+
+def _cmd_test_execute(args: argparse.Namespace, settings: Settings) -> int:
+    from patchlens.db.models.testing import TestCandidate
+    from patchlens.services.testing.execution import (
+        execute_candidate,
+        mark_execution_disabled,
+        resolve_sandbox,
+    )
+
+    database = get_database()
+    with database.session() as session:
+        candidate = session.get(TestCandidate, args.candidate_id)
+        if candidate is None:
+            print(f"test candidate {args.candidate_id} not found", file=sys.stderr)
+            return 1
+        sandbox = resolve_sandbox(settings)
+        if not sandbox.available:
+            outcome = mark_execution_disabled(session, candidate, sandbox)
+            session.commit()
+            payload = {"candidate_id": candidate.id, **outcome.to_dict()}
+            _emit(args, payload, human=f"not executed: {sandbox.reason}")
+            return 1
+        outcome = execute_candidate(session, candidate, settings)
+        session.commit()
+        payload = {
+            "candidate_id": candidate.id,
+            "status": candidate.status,
+            "executed": outcome.executed,
+            "exit_code": candidate.exit_code,
+            "duration_ms": candidate.duration_ms,
+            "timed_out": candidate.timed_out,
+            "stdout_tail": candidate.stdout_tail,
+            "stderr_tail": candidate.stderr_tail,
+        }
+    _emit(
+        args,
+        payload,
+        human=(
+            f"{payload['status']} exit={payload['exit_code']} duration={payload['duration_ms']}ms\n"
+            f"stdout:\n{payload['stdout_tail'] or ''}\nstderr:\n{payload['stderr_tail'] or ''}"
+        ),
+    )
+    return 0 if payload["status"] == "passed" else 1
 
 
 def _read_session_or_hint(settings: Settings) -> Any:
@@ -531,6 +763,7 @@ def _cmd_eval_run(args: argparse.Namespace, settings: Settings) -> int:
     from patchlens.services.evaluation.runner import (
         run_retrieval_evaluation,
         run_review_evaluation,
+        run_test_generation_evaluation,
     )
 
     database = get_database()
@@ -589,6 +822,14 @@ def _cmd_eval_run(args: argparse.Namespace, settings: Settings) -> int:
                 strategies=strategies,
                 dataset_commit_sha=dataset.commit_sha,
             )
+        elif dataset.kind == "test_generation":
+            run = run_test_generation_evaluation(
+                session,
+                dataset=dataset,
+                cases=cases,
+                repository=repository,
+                settings=settings,
+            )
         else:
             run = run_review_evaluation(
                 session,
@@ -641,6 +882,13 @@ def _eval_run_payload(run: EvalRun, dataset: EvalDataset, results: list[EvalCase
                         "must_find_missed",
                         "unexpected",
                         "missed",
+                        "validity_rate",
+                        "execution_rate",
+                        "executed",
+                        "pass_rate_on_original",
+                        "regression_detection_rate",
+                        "generation_failure_rate",
+                        "mutations",
                     }
                     or key.startswith(("recall@", "mrr@", "ndcg@"))
                 },
@@ -669,6 +917,17 @@ def _eval_run_human(payload: dict[str, Any]) -> str:
         if best:
             lines.append(f"  best strategy: {best}")
     overall = (payload["metrics"] or {}).get("overall")
+    if dataset["kind"] == "test_generation":
+        metrics = payload["metrics"] or {}
+        lines.append(
+            f"  validity={_fmt(metrics.get('validity_rate'))} "
+            f"execution={_fmt(metrics.get('execution_rate'))} "
+            f"pass_on_original={_fmt(metrics.get('pass_rate_on_original'))} "
+            f"regression_detection={_fmt(metrics.get('regression_detection_rate'))}"
+        )
+        unknowns = metrics.get("unknowns") or []
+        if unknowns:
+            lines.append("  UNKNOWN: " + "; ".join(unknowns))
     if overall:
         lines.append(
             f"  overall precision={_fmt(overall.get('precision'))} "

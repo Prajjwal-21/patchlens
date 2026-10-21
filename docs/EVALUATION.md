@@ -92,6 +92,15 @@ A predicted finding matches an expected label when the **category is equal**, th
 is allowed because a reviewer may anchor a block at its first line). `rule_id` is
 reported separately: finding the right problem with a different rule is still a find.
 
+### Test-generation dataset (`test-generation-demo-v1.json`)
+
+Each case contains a target function, its source and signature, related tests, and
+one behaviour-changing mutation. Generation validity is always measured; execution,
+pass rate and regression detection are measured only when the subprocess tier is
+explicitly enabled. The dataset records that the mock generator produces an
+importability smoke suite, so a default run measures validity, not behavioural test
+quality.
+
 ## Metrics
 
 ### Retrieval
@@ -130,15 +139,19 @@ successful cases its metrics are `UNKNOWN`, not zero.
 - Runs do not include a human review of the predictions; the labels are the only
   ground truth, and that limitation is stored with every run.
 
-### Test intelligence (milestone 6)
+### Test intelligence
 
 - **Validity** — generated candidates that parse and are collected by pytest.
 - **Execution rate** — candidates that actually ran in the sandbox tier, with the
   tier recorded.
-- **Regression detection** — share of labelled bug cases where a generated test
-  fails on the buggy revision and passes on the fixed revision.
-- If no execution backend is available, these are `NOT RUN` with the reason, never
-  fabricated.
+- **Pass rate on the original revision** — executed candidates that pass.
+- **Regression detection** — share of labelled mutation cases where a generated test
+  fails on the mutated revision; reported as `UNKNOWN` when no mutations were
+  evaluated.
+- If no execution backend is available, these are `NOT RUN`/`UNKNOWN` with the
+  reason, never fabricated. The harness currently uses the subprocess tier only and
+  requires explicit opt-in; the Docker tier is used by the candidate-execution API,
+  not by this harness.
 
 ## How runs are produced
 
@@ -164,10 +177,97 @@ in the CLI). A dataset with no run is returned with `status="not_run"` and
 `latest_run=null`; a run with an undefined metric returns `null`, which the UI
 renders as `UNKNOWN`.
 
-## Recorded runs — 2026-10-20
+## Recorded runs — 2026-10-21 (PostgreSQL + pgvector)
 
-One environment was available for these runs. It is part of the result, not an
-implementation detail:
+These are the current runs. They use the Compose stack: PostgreSQL 16 with the
+pgvector extension, Redis for wake-ups, hashing embeddings and the deterministic
+mock provider.
+
+| Component | Value |
+| --- | --- |
+| Database | PostgreSQL 16 + pgvector (Docker Compose) |
+| Semantic backend | `pgvector` exact cosine-distance scan (`<=>`); no HNSW index |
+| Embeddings | `hashing`, model `hashing-ngram-v2`, 512 dims, **non-neural** |
+| LLM | `mock` provider (deterministic rule engine, `is_mock=true`) |
+| Corpus | `demo/compose-demo` @ `compose-demo-v1`: 5 files, 21 symbols, 5 tests |
+| Host | Docker Desktop Linux container (`Linux-...-linuxkit-aarch64`), Python 3.11.17 |
+| PatchLens revision | working tree, version `0.1.0` |
+
+The exact `GET /api/v1/evaluation/runs/{id}` serializer payloads are checked in:
+
+- `docs/eval/2026-10-21-evr_1c874fcd28be4d27adb12542972fb79a.json`
+- `docs/eval/2026-10-21-evr_a473310248634f82b8585d100bf75434.json`
+- `docs/eval/2026-10-21-evr_35a3d64206234b39b3d50c03834bf1ad.json`
+
+### Retrieval — run `evr_1c874fcd28be4d27adb12542972fb79a`
+
+Dataset `retrieval-demo-v1` v1, content hash
+`6208a5f5d6430b1093245ceb30248660bec0636d43bce5e9fb0d8bd5c35a2659`, 12 queries,
+0 failures, 36 ms total. The dataset labels refer to `demo-local`; the indexed
+version is `compose-demo-v1`. The run stores that mismatch as a limitation.
+
+| Strategy | Recall@5 | MRR@10 | nDCG@10 | p50 ms | p95 ms | Failures |
+| --- | --- | --- | --- | --- | --- | --- |
+| static | 0.667 | 0.778 | 0.688 | 0.09 | 0.16 | 0 |
+| bm25 | 0.778 | 0.771 | 0.756 | 0.18 | 0.26 | 0 |
+| semantic | 0.750 | **1.000** | 0.809 | 0.41 | 0.88 | 0 |
+| hybrid | **0.799** | 0.840 | 0.738 | 0.56 | 0.69 | 0 |
+| hybrid_rerank | **0.799** | 0.938 | **0.833** | 0.68 | 0.81 | 0 |
+
+`best_strategy` (highest nDCG@10): `hybrid_rerank`. Cost: `UNKNOWN`. The ordering is
+close to the SQLite run but not identical (for example `semantic` nDCG@10 0.809 vs
+0.789), which is expected from a different distance implementation and tie-breaking;
+the best strategy and the main conclusions are unchanged. Latency is an in-process
+retrieval measurement against a 21-symbol corpus, not a load test.
+
+### Findings — run `evr_a473310248634f82b8585d100bf75434`
+
+Dataset `review-demo-v1` v1, content hash
+`0db0fc89c4da8622c45ff42e2a2d8ab75a2e2bad53327e8ef1fbff124da66370`, 3 diffs,
+62 ms total. Provider: `mock` (rule engine), so this measures the deterministic
+layer plus the mock's labelled heuristics — **not an LLM**.
+
+| Metric | Value |
+| --- | --- |
+| Matches | tp 13, fp 0, fn 1 |
+| Micro precision / recall / F1 | 1.000 / 0.929 / 0.963 |
+| Must-find recall (7 labels) | 0.857 (6 found, 1 missed) |
+| Rule-match rate (13 matches) | 1.000 |
+| Rejected candidates | 0 |
+| Latency p50 / p95 | 12.8 ms / 35.2 ms |
+
+The per-case behaviour is the same as the 2026-10-20 SQLite run: `review-001` finds
+all 12 labels, `review-002` (negative control) produces 0 findings, and
+`review-003` misses the semantic off-by-one label while producing the missing-test
+finding. Cost is `UNKNOWN`.
+
+### Test generation — run `evr_35a3d64206234b39b3d50c03834bf1ad`
+
+Dataset `test-generation-demo-v1` v1, content hash
+`30c19903137e46fef425220b8932c7948565b093860f343e8d36aecc44df1231`, 3 targets,
+2 ms total. Provider: `mock`; execution mode `disabled`.
+
+| Metric | Value |
+| --- | --- |
+| Attempted / valid / rejected | 3 / 3 / 0 |
+| Validity rate | 1.000 |
+| Generation failure rate | 0.000 |
+| Execution rate | `UNKNOWN` — sandbox disabled |
+| Pass rate on original | `UNKNOWN` — sandbox disabled |
+| Regression detection | `UNKNOWN` — no mutations evaluated |
+| Latency p50 / p95 | 0.24 ms / 0.36 ms |
+
+The mock generator emits importability smoke tests, so validity measures that the
+candidates parse and are collectable; it does not measure behavioural test quality.
+Execution was intentionally disabled for the evaluation run. The Docker tier was
+verified separately through the candidate-execution API (candidate
+`tst_437cecac3e1c40c6a7a383fbbb003025`: passed, exit 0, 3 tests, 545 ms).
+
+## Recorded runs — 2026-10-20 (SQLite)
+
+These are the original SQLite runs, kept for comparison. They were recorded before
+the PostgreSQL/pgvector stack was exercised; the current runs are above. The
+environment is part of the result, not an implementation detail:
 
 | Component | Value |
 | --- | --- |
@@ -177,9 +277,9 @@ implementation detail:
 | LLM | `mock` provider (deterministic rule engine, `is_mock=true`) |
 | Corpus | `demo/patchlens-demo` @ `demo-local`: 5 files, 21 symbols, 5 tests |
 | Host | macOS, Python 3.11, single process, warm corpus cache |
-| PatchLens revision | working tree (the repository has no commits yet) |
+| PatchLens revision | working tree (dirty; the run records `code_revision=unknown`) |
 
-The full API payloads for both runs are checked in as evidence:
+The full API payloads for the two 2026-10-20 runs are checked in as evidence:
 `docs/eval/2026-10-20-retrieval-demo-v1.json` and
 `docs/eval/2026-10-20-review-demo-v1.json`. They are the exact
 `GET /api/v1/evaluation/runs/{id}` serializer output, including every per-case
@@ -278,10 +378,11 @@ returned by the API, so a report can be checked rather than trusted.
 
 | Area | Status |
 | --- | --- |
-| retrieval metrics + runner | RUN — `evr_022b326481384153bf7d1db625d47c66`, five strategies on 12 queries |
-| finding precision/recall + must-find | RUN — `evr_205eb93f3fa5474f98dea8c70acfc7b9`, 3 diffs with the mock provider |
-| latency reporting | RUN for both kinds (in-process, SQLite); not comparable to pgvector/HTTP |
+| retrieval metrics + runner | RUN on SQLite and PostgreSQL/pgvector — current `evr_1c874fcd28be4d27adb12542972fb79a`, five strategies on 12 queries |
+| finding precision/recall + must-find | RUN — current `evr_a473310248634f82b8585d100bf75434`, 3 diffs with the mock provider |
+| test-generation validity | RUN — `evr_35a3d64206234b39b3d50c03834bf1ad`, 3/3 valid with the mock generator |
+| test execution / regression detection | NOT RUN in evaluation — sandbox disabled; Docker tier verified separately through candidate execution |
+| latency reporting | RUN for both retrieval backends and review; warm single-process measurements, not load tests |
 | cost reporting | `UNKNOWN` by design: no priced provider was configured |
-| test-generation metrics | NOT RUN — feature is milestone 6 |
-| live PostgreSQL + pgvector, real LLM | NOT RUN — no service/credentials in this environment |
+| real LLM or neural embeddings | NOT RUN — no paid credentials were used |
 | independent review of the labels | NOT RUN — labels are author-written for this repository |

@@ -30,9 +30,7 @@ def upgrade() -> None:
             )
         )
         batch_op.add_column(sa.Column("publish_detail", sa.Text(), nullable=True))
-        batch_op.add_column(
-            sa.Column("published_comment_url", sa.String(length=1024), nullable=True)
-        )
+        batch_op.add_column(sa.Column("published_comment_url", sa.String(length=1024), nullable=True))
         batch_op.add_column(sa.Column("published_at", sa.DateTime(timezone=True), nullable=True))
 
 

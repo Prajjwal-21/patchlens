@@ -192,10 +192,48 @@ Acceptance: related tests identified; candidate regression tests generated; exec
 only in a restricted runner (or explicitly disabled); real outcomes recorded.
 
 - [x] Structural related-test identification (consumed by the missing-test check)
-- [ ] Candidate test generation from changed symbols + retrieval context
-- [ ] Execution tiers: disabled (default), subprocess (explicit opt-in, documented as
-      not a security boundary), Docker (network off, resource limits)
-- [ ] Real execution results recorded; sandbox unavailability explained, never faked
+- [x] Candidate test generation from changed symbols + retrieval context
+      (`services/testing/generator.py`, `test_candidates`, repository and per-review
+      APIs; the deterministic mock emits an importability smoke suite)
+- [x] Execution tiers: disabled (default), subprocess (explicit opt-in, documented as
+      not a security boundary), Docker (network off, read-only mounts, dropped
+      capabilities, read-only root, memory/CPU/PID limits)
+- [x] Real execution results recorded; sandbox unavailability explained, never faked
+      (`execution_disabled`/`error` with a reason; `executed_at` only after a process
+      actually ran)
+- [x] Docker runner image (`docker/test-runner/Dockerfile`) and verified candidate
+      execution: `tst_437cecac3e1c40c6a7a383fbbb003025` -> `passed`, exit 0,
+      3 collected tests, 545 ms, `sandbox_mode=docker`, network disabled
+
+### Verification log (2026-10-21, milestones 6-8)
+- `pytest tests -q` -> **455 passed**
+- `pytest tests -q --cov=patchlens` -> **87%** statements (8784 statements, 892
+  missed; 2184 branches, 379 partial)
+- `ruff format --check patchlens tests migrations` -> 124 files already formatted;
+  `ruff check patchlens tests migrations` -> All checks passed
+- `mypy patchlens` -> Success: no issues found in 89 source files
+- Frontend: `npm run lint`, `npm run typecheck`, `npm test` -> **26 passed**;
+  `npm run build` -> 19 routes compiled
+- `make ci` (backend lint/typecheck/tests + frontend lint/typecheck/tests/build) ->
+  passed
+- `docker compose up -d --build` -> PostgreSQL 16 + pgvector, Redis, migrate, API and
+  worker running; `/readyz` 200; worker logs `redis job wake-ups enabled`; API
+  `/api/v1/settings` reports `semantic_backend=pgvector`
+- Compose evaluation runs (PostgreSQL/pgvector, hashing embeddings, mock provider):
+  retrieval `evr_1c874fcd28be4d27adb12542972fb79a` (12 queries, 5 strategies, 0
+  failures, best `hybrid_rerank` nDCG@10 0.833 / MRR@10 0.938 / Recall@5 0.799);
+  review `evr_a473310248634f82b8585d100bf75434` (P 1.000 / R 0.929 / F1 0.963,
+  must-find recall 0.857); test generation
+  `evr_35a3d64206234b39b3d50c03834bf1ad` (validity 3/3, execution UNKNOWN because
+  the sandbox was disabled for the run). Payloads are in `docs/eval/2026-10-21-*.json`.
+- `make init-db && make demo-repo && make demo-review` -> 12 findings (4 verified,
+  8 need manual verification), provider `mock`
+- Bugs found and fixed by this pass: the shared API/worker image carried an HTTP
+  healthcheck, so the worker was reported unhealthy; blank `API_AUTH_TOKEN` /
+  `REDIS_URL` values were treated as set instead of unset; the initial migration did
+  not create the `vector` extension on PostgreSQL; the demo test target pointed at a
+  non-existent node id; the test pages said "no process was run" for a candidate with
+  a recorded Docker pass when the current sandbox was disabled.
 
 ## Milestone 7 - Reliability hardening
 Acceptance: retries/timeouts/idempotency/concurrency limits exercised; degraded
@@ -204,38 +242,56 @@ modes documented; security review with tests.
 - [x] Lease expiry/recovery, retry/backoff, cancellation and dedupe tests
 - [x] Security tests: path traversal, auth, payload limits, prompt-injection handling,
       secret redaction, diff path rejection
-- [ ] Idempotency and duplicate-event tests across API, queue and webhooks
-- [ ] Timeout enforcement exercised end to end; failure-injection suite
-- [ ] Documented load/soak evidence (or an explicit statement that none was gathered)
+- [x] Idempotency and duplicate-event tests across API, queue and webhooks (repeated
+      index requests, duplicate deliveries, duplicate head-SHA jobs, terminal dedupe
+      slot release, retry ownership)
+- [x] Timeout enforcement exercised end to end; failure-injection suite (worker kills
+      a sleeping handler at the limit; provider, embedding, handler and publication
+      failures are injected in tests)
+- [x] Load/soak evidence: **none gathered**. Latency numbers are single-process
+      microbenchmarks, not a load test; this is stated in README and EVALUATION.
 
 ## Milestone 8 - Portfolio finish
 Acceptance: README, architecture + data-flow diagrams, screenshots, CI, demo script,
 resume bullets; every claim traceable to a command that was run.
 
-- [ ] Frontend: Overview, Repositories, Reviews, Findings, Evaluation, Settings
-      (real loading/error/empty states, keyboard accessible, no placeholder buttons)
-- [~] README + ARCHITECTURE + SECURITY + EVALUATION docs written; recorded run
-      numbers are in `docs/EVALUATION.md`. Screenshots and resume bullets still pending
+- [x] Frontend: Overview, Repositories, Reviews, Findings, Test intelligence,
+      Evaluation, Jobs, Settings (real loading/error/empty states, keyboard
+      accessible, no placeholder buttons; 26 unit tests, lint/typecheck/build clean)
+- [x] README + ARCHITECTURE + SECURITY + EVALUATION docs updated with 2026-10-21
+      measured numbers and run ids
 - [x] Architecture and data-flow diagrams (Mermaid, `docs/ARCHITECTURE.md`)
 - [x] docker-compose (Postgres+pgvector, Redis, migrate, API, worker) + `.env.example`
-      (compose unexecuted, see blocked)
-- [x] GitHub Actions CI (backend + migrations; frontend job to be added with the app)
+      (executed and verified; API healthcheck scoped to the API service)
+- [x] GitHub Actions CI: backend lint/type/test + migrations + frontend
+      lint/typecheck/test/build
 - [x] Demo workflow producing a labelled mock review from a real fixture repo
-- [ ] Screenshots captured from the running app
-- [ ] Resume bullets with measured numbers
+- [x] Screenshots captured from the running app (`docs/screenshots/`, 12 views)
+- [x] Resume bullets with measured numbers (`docs/RESUME.md`)
 
 ## Known environment limitations (kept honest in docs)
-- Docker daemon was not running during development: Postgres+pgvector and Redis
-  integration, plus the Docker test-execution tier, are implemented but have not
-  been executed here. `docker compose up` and the sandbox tiers remain unverified.
 - No live GitHub App installation or request to github.com: webhook handling, App
   auth, diff fetch, publication and the neutral check run are tested against a
   generated RSA key and an `httpx.MockTransport`. Remote cloning is not implemented,
   so webhook reviews require a registered local checkout and index.
-- No paid LLM credentials were used; default runs use the deterministic mock
-  provider and are labelled as such everywhere.
-- The pgvector column is currently unconstrained (`vector` without a dimension), so
-  the planned fixed-dimension column + HNSW index is a migration still to come; on
-  SQLite the semantic path is an in-process scan.
+- No paid LLM credentials or neural embedding endpoint were used; default runs use
+  the deterministic mock provider and hashing embeddings, labelled as such
+  everywhere. Evaluation numbers therefore measure the deterministic layer, not LLM
+  review quality.
+- PostgreSQL + pgvector has been executed, but the vector column is unconstrained
+  (`vector` without a dimension) and there is no HNSW index. Semantic search uses
+  pgvector's exact cosine-distance scan; the fixed-dimension column + HNSW index is a
+  planned migration. On SQLite the semantic path is an in-process scan.
+- No load or soak test was run. Recorded latencies are warm, single-process
+  measurements and are not capacity evidence.
+- The Docker test runner is defense in depth, not a proof that arbitrary generated
+  code is safe. It uses the default Docker seccomp profile, a minimal pytest image,
+  no network, read-only mounts and resource limits; the host Docker daemon remains a
+  trusted component.
+- The subprocess execution tier is explicitly **not** a security boundary and
+  requires `ALLOW_LOCAL_TEST_EXECUTION=true`.
+- GitHub Enterprise is untested; publication is at-least-once across a crash; the
+  evaluation datasets are small and author-labelled; independent label review has
+  not been performed.
 - Re-indexing is required after changing `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL` or
   `EMBEDDING_DIM`; cached vectors are keyed by all three.

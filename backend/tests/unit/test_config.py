@@ -140,3 +140,10 @@ class TestCsvAndValidation:
         first = get_settings()
         assert get_settings() is first
         assert reload_settings() is not first
+
+
+def test_blank_optional_secrets_are_unset() -> None:
+    settings = Settings(environment="test", api_auth_token="   ", redis_url="")
+    assert settings.api_auth_token is None
+    assert settings.redis_url is None
+    assert settings.summary()["auth_required"] is False

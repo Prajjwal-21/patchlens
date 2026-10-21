@@ -15,7 +15,7 @@ from sqlalchemy import engine_from_config, pool
 
 from patchlens.core.config import get_settings
 from patchlens.db.base import Base, UTCDateTime
-from patchlens.db.models import *  # noqa: F401,F403 - register every table on Base.metadata
+from patchlens.db.models import *  # noqa: F403 - register every table on Base.metadata
 from patchlens.db.types import VectorColumn
 
 config = context.config
@@ -63,7 +63,7 @@ def run_migrations_online() -> None:
             context.run_migrations()
 
 
-def render_item(type_, obj, autogen_context):  # noqa: ANN001, ANN201 - alembic hook
+def render_item(type_, obj, autogen_context):
     """Render PatchLens custom column types with their full import path."""
     if type_ == "type" and isinstance(obj, VectorColumn):
         autogen_context.imports.add("from patchlens.db.types import VectorColumn")

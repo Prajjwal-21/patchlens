@@ -1,8 +1,8 @@
 # Architecture
 
-This document describes what the code does today. Components that are designed but
-not implemented yet are marked as planned; they do not appear in diagrams as if they
-existed.
+This document describes what the code does today. Remaining limitations (for
+example the missing HNSW index and live GitHub installation) are called out where
+they matter rather than drawn as if they existed.
 
 ## Goals that shaped the design
 
@@ -17,27 +17,38 @@ existed.
 
 ## Processes
 
-PatchLens ships as two long-running processes plus a one-shot migration step:
+PatchLens ships as two backend processes, a Next.js frontend and a one-shot
+migration step:
 
 ```mermaid
 flowchart TB
+    subgraph browser[Browser]
+      U[Next.js dashboard]
+    end
+    subgraph frontend[Next.js server]
+      F[App Router + proxy /api/backend/*]
+    end
     subgraph api[API process]
       A1[FastAPI] --> A2[services]
       A1 --> A3[(database)]
     end
     subgraph worker[worker process]
       W1[poll / claim jobs] --> W2[handlers]
-      W2 --> W3[ingestion + review services]
+      W2 --> W3[ingestion + review + testing services]
       W2 --> A3
     end
+    U --> F
+    F -->|server-side token| A1
     A1 -. optional wake-up .-> R[(Redis)]
     W2 -. optional wake-up .-> R
-    A3[(PostgreSQL or SQLite)]
+    A3[(PostgreSQL + pgvector or SQLite)]
 ```
 
 Redis is never required for correctness: the durable queue is the `jobs` table, and
 Redis (when configured) only shortens the latency between "a job was queued" and "a
-worker noticed".
+worker noticed". The worker subscribes to `patchlens:jobs` and also polls with a
+bounded interval, so a missed publish cannot strand work. The frontend proxy keeps
+`API_AUTH_TOKEN` on the server; the browser never receives it.
 
 ## Review data flow
 
@@ -99,12 +110,16 @@ is what makes them comparable in the evaluation harness.
   docstring, body excerpt). The tokenizer splits `snake_case` identifiers into the
   whole identifier plus its parts so `safe_divide` is findable as `divide`.
 - `semantic`: cosine similarity over vectors. On SQLite this is an in-process scan
-  (`portable_scan`); the pgvector path is planned to be an indexed ANN query.
+  (`portable_scan`); on PostgreSQL it is a pgvector `<=>` query. The vector column is
+  unconstrained and there is no HNSW index yet, so the database path is an exact
+  scan, not an ANN query. Both paths were exercised on 2026-10-21 (SQLite and
+  PostgreSQL 16 + pgvector).
 - `hybrid`: reciprocal rank fusion (`k=60`) of the BM25 and semantic rankings.
 - `hybrid_rerank`: RRF candidates re-scored by a heuristic reranker with fixed,
   documented weights (identifier overlap, path proximity, kind match). It is not a
   trained model and is labelled that way.
-- `static`: symbol-graph adjacency, used to find callers and tests deterministically.
+- `static`: exact identifier/path/kind matching, an unranked baseline rather than a
+  semantic or graph strategy.
 
 ## Deterministic checks
 
@@ -152,7 +167,7 @@ duplicate checks, prompt-injection rejection) before it is stored or published.
 | review | `pull_requests`, `reviews`, `findings`, `finding_feedback` |
 | jobs | `jobs`, `job_events` |
 | GitHub | `github_installations`, `webhook_deliveries` |
-| testing (planned wiring) | `test_candidates` |
+| testing | `test_candidates` |
 | evaluation | `eval_datasets`, `eval_cases`, `eval_runs`, `eval_case_results` |
 
 Portability decisions:
@@ -160,7 +175,8 @@ Portability decisions:
 - `UTCDateTime` normalises timezone handling across SQLite and PostgreSQL.
 - `VectorColumn` stores JSON text on SQLite and an unconstrained `vector` on
   PostgreSQL. The dimension is validated in Python. A fixed-dimension column plus an
-  HNSW index is planned; until then the Postgres semantic path is a scan.
+  HNSW index is planned; until then the Postgres semantic path is an exact scan
+  inside the database.
 - Jobs use `dedupe_key` (immutable identity) plus a nullable unique `dedupe_slot`
   that is cleared on terminal success/failure but retained while retrying, so a
   crash cannot create a duplicate active job.
@@ -174,6 +190,37 @@ heartbeat; expired leases are recovered on startup and periodically, so a killed
 worker does not strand work. Timeouts are enforced per job (`SIGALRM` where
 available). Concurrency is limited to one job on SQLite (single-writer) and can be
 raised on PostgreSQL.
+
+After a queue transaction commits, the enqueue path publishes a best-effort Redis
+notification; the worker subscribes to the same channel and still polls on a bounded
+interval. A Redis outage therefore adds latency, not lost work.
+
+## Test intelligence
+
+Generation turns changed symbols (or explicit indexed symbols) into candidate tests.
+Each row in `test_candidates` stores the target, source, suggested path, provider and
+model, status, and execution metadata. The bundled deterministic mock emits an
+importability smoke suite; a real provider can emit behavioural tests, but no paid
+provider was used here.
+
+Execution is resolved at request time into one of three tiers:
+
+- `disabled` (default): no process is started; the candidate is stored as
+  `execution_disabled` with the reason and `executed_at` stays null.
+- `subprocess`: requires `ALLOW_LOCAL_TEST_EXECUTION=true`. It applies a timeout, a
+  sanitised environment, a fresh working directory and best-effort POSIX limits. It
+  is explicitly **not** a security boundary.
+- `docker`: runs `patchlens-test-runner:latest` with `--network none` by default,
+  read-only repository and test mounts, `--cap-drop ALL`, `no-new-privileges`, a
+  read-only root filesystem, a `noexec` tmpfs, memory/CPU/PID limits, a timeout and
+  output caps. If the Docker CLI or daemon is unavailable the candidate is
+  `execution_disabled` with the probe error; a missing image or container failure is
+  `error` with the captured output.
+
+`executed_at`, `exit_code` and output are written only after a process was actually
+started. A missing sandbox is never rendered as `passed`. The evaluation harness
+reuses the subprocess primitive and reports execution metrics as `UNKNOWN` unless
+that tier is explicitly enabled; it does not use the Docker tier.
 
 ## GitHub flow
 
@@ -205,9 +252,34 @@ pipeline records `publish_state=skipped` with the reason. See
 - **LLM/embedding providers**: implement the base class; the factory maps settings
   names to constructors. Provider/model identity is persisted with each artefact.
 
-## Frontend (planned)
+## Frontend
 
-The Next.js app is milestone 8. It will consume the same API, render real
-loading/error/empty states, and show the same honesty labels (`mock provider`,
-`needs manual verification`, `NOT RUN`). No frontend claims are made in this
-document yet.
+`frontend/` is a Next.js 16 App Router application (React 19, TypeScript strict,
+Tailwind 4). It renders Overview, Repositories, Reviews, Findings, Test
+intelligence, Evaluation, Jobs and Settings, plus create/detail routes.
+
+- Data is fetched client-side through `/api/backend/*`, a same-origin route handler
+  that forwards to `PATCHLENS_API_URL` and injects `PATCHLENS_API_TOKEN` server-side.
+  The token is never sent to the browser.
+- Every page has real loading, error and empty states. Undefined metrics render as
+  `UNKNOWN`; a dataset without a run renders as `NOT RUN`.
+- The dashboard reads aggregate numbers from `GET /api/v1/overview`; evaluation runs
+  are excluded from workspace counts and shown on the Evaluation page.
+- The UI labels mock provider output and verification status instead of presenting
+  suggestions as confirmed defects.
+- 26 Vitest tests cover formatting, badges, the proxy route and feedback controls;
+  lint, typecheck and the production build are part of `make ci`.
+
+## Deployment
+
+`docker-compose.yml` runs PostgreSQL 16 + pgvector, Redis, a one-shot Alembic
+migration, the API and a worker. The API healthcheck probes `/healthz`; the worker
+has no HTTP probe because it does not serve HTTP. Both long-running services use the
+same non-root image and run with `AUTO_CREATE_SCHEMA=false`, so migrations are the
+only schema owner.
+
+Verified on 2026-10-21: `docker compose up -d --build` brought the stack up,
+migrations completed, `/readyz` returned 200, the worker logged Redis wake-ups, the
+API reported `semantic_backend=pgvector`, and retrieval/review/test-generation
+evaluation runs succeeded. The Docker test-runner image is separate from the
+API/worker image and contains only pytest.

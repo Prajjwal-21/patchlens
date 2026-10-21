@@ -87,6 +87,75 @@ class TestHealthAndMeta:
         assert response.headers.get("x-request-id")
 
 
+class TestOverview:
+    def test_empty_overview_uses_null_for_undefined_rates(self, client: TestClient) -> None:
+        body = client.get("/api/v1/overview").json()
+        assert body["repositories"]["total"] == 0
+        assert body["reviews"]["total"] == 0
+        assert body["reviews"]["success_rate"] is None
+        assert body["jobs"]["failure_rate"] is None
+        assert body["findings"]["open_findings"] == 0
+        assert body["recent_reviews"] == []
+
+    def test_overview_reflects_persisted_review_and_feedback(
+        self, client: TestClient, demo_repo: Path, worker, diff_text: str
+    ) -> None:
+        created = register(client, demo_repo)
+        index_now(client, worker, created["id"])
+        apply_new_state(demo_repo)
+        body = review_sync(client, created["id"], diff_text)
+        review = body["review"]
+        findings = client.get(f"/api/v1/reviews/{review['id']}/findings").json()
+
+        overview = client.get("/api/v1/overview").json()
+        assert overview["repositories"]["total"] == 1
+        assert overview["repositories"]["indexed"] == 1
+        assert overview["reviews"]["by_status"]["succeeded"] == 1
+        assert overview["reviews"]["success_rate"] == 1.0
+        assert overview["reviews"]["latency_ms"]["sample_size"] == 1
+        assert overview["reviews"]["latency_ms"]["p50"] is not None
+        assert overview["findings"]["open_findings"] == len(findings)
+        assert overview["findings"]["labelled_findings"] == 0
+        assert overview["test_intelligence"]["candidates"] == 0
+        assert overview["jobs"]["by_status"]["succeeded"] >= 1
+        assert overview["recent_reviews"][0]["id"] == review["id"]
+
+        client.post(
+            f"/api/v1/findings/{findings[0]['id']}/feedback",
+            json={"label": "correct", "comment": "Confirmed"},
+        )
+        updated = client.get("/api/v1/overview").json()
+        assert updated["findings"]["labelled_findings"] == 1
+        assert updated["findings"]["open_findings"] == len(findings) - 1
+
+    def test_evaluation_reviews_are_excluded_from_workspace_counts(
+        self, client: TestClient, demo_repo: Path, worker, diff_text: str, session
+    ) -> None:
+        from patchlens.db.models.review import Review
+
+        created = register(client, demo_repo)
+        index_now(client, worker, created["id"])
+        apply_new_state(demo_repo)
+        review = review_sync(client, created["id"], diff_text)["review"]
+
+        before = client.get("/api/v1/overview").json()
+        assert before["reviews"]["total"] == 1
+        assert before["findings"]["non_rejected"] > 0
+
+        row = session.get(Review, review["id"])
+        row.trigger = "evaluation"
+        session.commit()
+
+        after = client.get("/api/v1/overview").json()
+        assert after["reviews"]["total"] == 0
+        assert after["reviews"]["success_rate"] is None
+        assert after["reviews"]["latency_ms"]["sample_size"] == 0
+        assert after["findings"]["non_rejected"] == 0
+        assert after["findings"]["open_findings"] == 0
+        assert after["recent_reviews"] == []
+        assert after["recent_findings"] == []
+
+
 class TestRepositories:
     def test_create_list_and_fetch(self, client: TestClient, demo_repo: Path) -> None:
         created = register(client, demo_repo)
@@ -173,6 +242,21 @@ class TestIndexingThroughTheAPI:
         cancelled = client.post(f"/api/v1/jobs/{job['id']}/cancel")
         assert cancelled.status_code == 200
         assert client.get(f"/api/v1/jobs/{job['id']}").json()["status"] == "canceled"
+
+    def test_symbols_are_searchable_after_indexing(self, client: TestClient, demo_repo: Path, worker) -> None:
+        created = register(client, demo_repo)
+        missing = client.get(f"/api/v1/repositories/{created['id']}/symbols")
+        assert missing.status_code == 409
+        index_now(client, worker, created["id"])
+        response = client.get(f"/api/v1/repositories/{created['id']}/symbols", params={"query": "divide"})
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["pagination"]["total"] >= 1
+        names = {item["qualified_name"] for item in body["items"]}
+        assert "divide" in names
+        # Only production symbols are offered as generation targets by default.
+        assert all(item["is_test"] is False for item in body["items"])
+        assert body["items"][0]["source_truncated"] is False
 
     def test_jobs_list_filters_by_kind_and_status(self, client: TestClient, demo_repo: Path) -> None:
         created = register(client, demo_repo)

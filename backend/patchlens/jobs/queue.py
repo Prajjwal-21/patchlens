@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, select, update
+from sqlalchemy import event, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -28,8 +28,24 @@ from patchlens.core.config import Settings, get_settings
 from patchlens.core.enums import JobStatus
 from patchlens.core.logging import get_logger, log_extra
 from patchlens.db.models.job import Job, JobEvent
+from patchlens.jobs.notify import notify_job_available
 
 logger = get_logger(__name__)
+
+_WAKEUP_KEY = "patchlens_job_wakeup"
+
+
+@event.listens_for(Session, "after_commit")
+def _publish_wakeup_after_commit(session: Session) -> None:
+    """Tell idle workers about a job only after its row is committed."""
+    settings = session.info.pop(_WAKEUP_KEY, None)
+    if isinstance(settings, Settings):
+        notify_job_available(settings)
+
+
+@event.listens_for(Session, "after_rollback")
+def _discard_wakeup_after_rollback(session: Session) -> None:
+    session.info.pop(_WAKEUP_KEY, None)
 
 
 def utcnow() -> datetime:
@@ -104,6 +120,7 @@ def enqueue(
         )
     )
     session.flush()
+    session.info[_WAKEUP_KEY] = settings
     logger.info("job enqueued", extra=log_extra(job_id=job.id, kind=kind, priority=priority))
     return EnqueueResult(job=job, created=True)
 

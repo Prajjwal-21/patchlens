@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from patchlens.api.deps import (
@@ -18,9 +18,12 @@ from patchlens.api.deps import (
     write_session,
 )
 from patchlens.api.schemas import (
+    CodeSymbolListResponse,
+    CodeSymbolOut,
     DeleteResponse,
     IndexRequest,
     JobOut,
+    Pagination,
     RepositoryCreateRequest,
     RepositoryOut,
     RepositoryVersionOut,
@@ -29,7 +32,7 @@ from patchlens.api.serializers import job_out, repository_out, review_out, versi
 from patchlens.core.config import Settings
 from patchlens.core.errors import ConflictError, ForbiddenError, ValidationError
 from patchlens.core.logging import get_logger, log_extra
-from patchlens.db.models.repository import Repository, RepositoryVersion
+from patchlens.db.models.repository import CodeSymbol, Repository, RepositoryVersion
 from patchlens.db.models.review import Finding, Review
 from patchlens.jobs.queue import enqueue, make_dedupe_key
 
@@ -190,6 +193,83 @@ def delete_repository(
     session.flush()
     logger.warning("repository deleted", extra=log_extra(repository=full_name, repository_id=repository_id))
     return DeleteResponse(deleted=True, detail=f"deleted {full_name} and all indexed/review data")
+
+
+@router.get(
+    "/{repository_id}/symbols",
+    response_model=CodeSymbolListResponse,
+    summary="Symbols in the latest indexed snapshot",
+)
+def list_symbols(
+    repository_id: str,
+    query: str | None = None,
+    kind: str | None = None,
+    include_tests: bool = False,
+    session: Session = Depends(read_session),
+    params: PaginationParams = Depends(pagination),
+) -> CodeSymbolListResponse:
+    """Symbol search used by the test-generation picker.
+
+    Only a successfully indexed snapshot is searched: source for an unindexed
+    checkout would be stale or absent, and generating a test from it would be
+    misleading. The response includes the pagination total so the client can tell
+    an empty search from a missing snapshot.
+    """
+    repository = load_repository(session, repository_id)
+    version_id = repository.latest_version_id
+    if not version_id:
+        raise ConflictError(
+            "repository has no indexed snapshot; index it before selecting test targets",
+            details={"repository_id": repository.id},
+        )
+    filters = [CodeSymbol.repository_version_id == version_id]
+    if query and query.strip():
+        needle = f"%{query.strip()}%"
+        filters.append(
+            or_(
+                CodeSymbol.path.ilike(needle),
+                CodeSymbol.name.ilike(needle),
+                CodeSymbol.qualified_name.ilike(needle),
+            )
+        )
+    if kind:
+        filters.append(CodeSymbol.kind == kind)
+    if not include_tests:
+        filters.append(CodeSymbol.is_test.is_(False))
+    total = int(session.scalar(select(func.count()).select_from(CodeSymbol).where(*filters)) or 0)
+    rows = session.scalars(
+        select(CodeSymbol)
+        .where(*filters)
+        .order_by(CodeSymbol.path, CodeSymbol.start_line)
+        .limit(params.limit)
+        .offset(params.offset)
+    ).all()
+    return CodeSymbolListResponse(
+        items=[
+            CodeSymbolOut(
+                id=row.id,
+                path=row.path,
+                language=row.language,
+                kind=row.kind,
+                name=row.name,
+                qualified_name=row.qualified_name,
+                parent_qualified_name=row.parent_qualified_name,
+                signature=row.signature,
+                docstring=row.docstring,
+                start_line=row.start_line,
+                end_line=row.end_line,
+                is_test=row.is_test,
+                source_truncated=row.source_truncated,
+            )
+            for row in rows
+        ],
+        pagination=Pagination(
+            total=total,
+            limit=params.limit,
+            offset=params.offset,
+            has_more=params.offset + len(rows) < total,
+        ),
+    )
 
 
 @router.get("/{repository_id}/versions", response_model=list[RepositoryVersionOut], summary="Index snapshots")

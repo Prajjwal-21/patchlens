@@ -1,9 +1,9 @@
 # Security model
 
-PatchLens reads untrusted input — diffs, repository files, model output — and in
-later milestones will execute generated tests. This document states what is enforced
-today, what is planned, and where the gaps are. It describes the current code, not an
-aspiration.
+PatchLens reads untrusted input — diffs, repository files, model output — and can
+execute generated tests in an explicitly enabled sandbox. This document states what
+is enforced today, what remains a limitation, and where the gaps are. It describes
+the current code, not an aspiration.
 
 ## Trust boundaries
 
@@ -12,7 +12,7 @@ aspiration.
 | Diff text (API, webhook) | untrusted, attacker-controlled |
 | Repository file contents | untrusted; may contain prompt injection or secrets |
 | LLM response | untrusted proposal; never authoritative |
-| Generated test code (planned) | untrusted; must never run on the host |
+| Generated test code | untrusted; never runs unless an execution tier is explicitly enabled |
 | Environment configuration | trusted operator input |
 
 ## Implemented controls
@@ -25,7 +25,11 @@ aspiration.
   (`hmac.compare_digest`).
 - With no token configured the instance is explicitly a local development instance;
   this is why the frontend can discover `auth_required` from the public
-  `/api/v1/meta` endpoint before it has a token.
+  `/api/v1/meta` endpoint before it has a token. Blank optional values
+  (`API_AUTH_TOKEN=`, `REDIS_URL=`) are normalised to unset, so an empty `.env`
+  entry cannot create an empty bearer token or a bogus Redis URL.
+- The Next.js proxy reads `PATCHLENS_API_TOKEN` on the server and forwards it to the
+  backend. It is not exposed as a `NEXT_PUBLIC_*` variable.
 - `/healthz`, `/readyz` and `/api/v1/meta` are public: probes must not need
   credentials, and meta exposes no secrets (provider names, capability flags,
   masked configuration).
@@ -113,6 +117,41 @@ aspiration.
   finding, so the review database does not become a secret store.
 - Logging has a redaction pass for token-like values.
 
+### Test execution sandbox
+
+Generated tests are untrusted code. Execution is **disabled by default**; the API
+returns `execution_disabled` with a reason and never records a pass without a real
+process.
+
+- **Subprocess** requires both `TEST_EXECUTION_MODE=subprocess` and
+  `ALLOW_LOCAL_TEST_EXECUTION=true`. It applies a timeout, a sanitised environment,
+  a fresh temporary working directory, a new process group and best-effort POSIX
+  limits (CPU, address space, file size, file descriptors, no core dumps). It is
+  explicitly **not a security boundary**: generated code can still read the host
+  filesystem and reach the network. The warning is stored on the candidate and shown
+  in the UI.
+- **Docker** (`TEST_EXECUTION_MODE=docker`) runs the candidate in
+  `patchlens-test-runner:latest` with:
+  - `--network none` unless `TEST_EXECUTION_NETWORK_ENABLED=true`;
+  - the repository and generated-test directories mounted **read-only**;
+  - `--cap-drop ALL`, `--security-opt no-new-privileges`, a read-only root
+    filesystem and a `noexec,nosuid` tmpfs;
+  - memory, memory-swap, CPU and PID limits;
+  - a wall-clock timeout and bounded stdout/stderr tails;
+  - `--rm` plus explicit `docker rm -f` cleanup on timeout.
+- The test-runner image is minimal (Python 3.11 + pytest) and runs as an
+  unprivileged user. It does not contain the API credentials or the application
+  image's source.
+- A missing Docker CLI/daemon is recorded as `execution_disabled` with the probe
+  error; a missing image or container failure is `error` with the captured output.
+  Neither is reported as a test failure or a pass.
+- Candidate paths are validated as safe relative Python paths and written under a
+  fresh temporary directory with `resolve_within`; source size is capped.
+
+Verified on 2026-10-21: a generated candidate ran in the Docker tier with the network
+disabled, exit 0, 3 collected tests and 545 ms. This is evidence that the tier works,
+not a guarantee that arbitrary code is safe.
+
 ### Database
 
 - All queries use SQLAlchemy expression language or bound parameters; no string-built
@@ -121,16 +160,14 @@ aspiration.
   repositories can be deleted with their derived data.
 - Statement timeouts are configurable for PostgreSQL.
 
-## Planned and not yet implemented
+## Not implemented
 
-These are milestone 6–7 items. They must not be described as protections until they
-land with tests:
-
-- **Test execution sandbox.** Execution tiers are planned: disabled by default,
-  opt-in subprocess (explicitly *not* a security boundary), and Docker with network
-  disabled and resource limits. Today no generated code is executed at all, and the
-  API reports test execution as unavailable.
-- **Outbound network policy** for the API/worker containers. Not implemented.
+- **Outbound network policy** for the API/worker containers. Not implemented; the
+  Compose services can reach any network their Docker configuration allows.
+- **Fixed-dimension pgvector column + HNSW index.** Semantic search runs, but the
+  column is unconstrained and the query is an exact scan.
+- **Custom seccomp/AppArmor profiles.** The Docker tier uses Docker's default
+  profiles. It is defense in depth, not a hardened multi-tenant sandbox.
 
 ## Known limitations
 
@@ -153,6 +190,12 @@ land with tests:
   assessed with a real provider, which has not been run here.
 - The heuristic reranker and hashing embeddings are not trained/neural; they do not
   affect security, but they do affect the quality of retrieved context.
+- The Docker execution tier trusts the host Docker daemon, which is effectively
+  root-equivalent. It uses Docker's default seccomp profile, not a custom one. Do not
+  enable it for untrusted code on a host you do not control. The subprocess tier is
+  not a sandbox at all.
+- No load or soak test was performed; there is no evidence about behaviour under
+  sustained concurrency or adversarial volume beyond the bounded request/job tests.
 - The public `/api/v1/meta` endpoint reveals provider mode and capability flags by
   design. If that is too much for a deployment, keep the service on a private
   network or put it behind an authenticating proxy.
