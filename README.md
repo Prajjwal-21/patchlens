@@ -1,103 +1,480 @@
 # PatchLens
 
-Repository-aware, AI-assisted code review with test intelligence.
+**Repository-aware code review and test intelligence for Python pull requests.**
 
-PatchLens reviews a pull-request diff the way a careful reviewer with repository
-access would: it finds the changed symbols, retrieves the callers, tests and docs
-that matter, runs deterministic checks, asks an LLM for judgement calls, and then
-verifies every location it wants to publish before it publishes anything.
+PatchLens reviews a diff the way a careful engineer with repository access would: it
+finds the changed symbols, retrieves the callers, tests and docs that matter, runs
+deterministic checks, asks an LLM only where judgement is needed, and verifies every
+finding against the diff before showing it.
 
-The project is built to be honest about what it knows. Findings are labelled
-`verified`, `ai_suggested`, `needs_manual_verification` or `rejected`; a finding
-that cannot be anchored to a line the diff actually added is discarded rather than
-shown with an invented location. Runs without paid credentials use a deterministic
-mock provider that is labelled as a mock in the API, the CLI and the UI model.
+The default setup runs entirely on your machine with **no paid credentials**: SQLite,
+a durable database-backed job queue, a deterministic mock LLM, and hashing embeddings.
+PostgreSQL + pgvector, Redis, a real OpenAI-compatible provider, GitHub App publishing,
+and a Docker test sandbox are all opt-in.
 
-## Status
+![PatchLens overview dashboard](docs/screenshots/overview.png)
 
-| Area | State |
+<p>
+  <img alt="Python 3.11" src="https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white">
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.146-009688?logo=fastapi&logoColor=white">
+  <img alt="Next.js 16" src="https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white">
+  <img alt="PostgreSQL + pgvector" src="https://img.shields.io/badge/PostgreSQL-16%20%2B%20pgvector-4169E1?logo=postgresql&logoColor=white">
+  <img alt="455 backend tests" src="https://img.shields.io/badge/backend%20tests-455-brightgreen">
+  <img alt="87% coverage" src="https://img.shields.io/badge/coverage-87%25-brightgreen">
+  <img alt="26 frontend tests" src="https://img.shields.io/badge/frontend%20tests-26-brightgreen">
+</p>
+
+## Contents
+
+- [Why PatchLens](#why-patchlens)
+- [Features](#features)
+- [Quick start](#quick-start)
+- [Using PatchLens](#using-patchlens)
+  - [Review a diff](#1-review-a-diff)
+  - [Use the dashboard](#2-use-the-dashboard)
+  - [Generate and run tests](#3-generate-and-run-tests)
+  - [Run the evaluation suite](#4-run-the-evaluation-suite)
+  - [Connect GitHub](#5-connect-github-optional)
+  - [Run the full stack with Docker](#6-run-the-full-stack-with-docker)
+- [CLI reference](#cli-reference)
+- [API](#api)
+- [Configuration](#configuration)
+- [How a review works](#how-a-review-works)
+- [Verification](#verification)
+- [Troubleshooting](#troubleshooting)
+- [Limitations](#limitations)
+- [Project layout](#project-layout)
+- [Documentation](#documentation)
+
+## Why PatchLens
+
+Most AI review tools are optimized to produce plausible comments. PatchLens is built
+around three constraints that make the output useful:
+
+1. **Evidence or it did not happen.** Every persisted finding must point at a line the
+   diff actually added, an existing path inside the repository, and evidence present in
+   the reviewed content. A candidate that cannot be anchored is rejected, with the
+   reason kept for inspection.
+2. **Uncertainty is visible.** Findings carry an explicit verification status, and the
+   UI never presents model output as a confirmed defect.
+3. **Degradation is explicit.** If embeddings fail, retrieval falls back to lexical
+   search and records a warning. If the LLM fails, deterministic findings are still
+   saved and the review is marked failed/degraded with the provider error. Nothing
+   silently shrinks into an unlabelled result.
+
+| Finding status | What it means |
 | --- | --- |
-| Milestone 1 — foundation, settings, DB, durable job queue, worker | done |
-| Milestone 2 — Python AST ingestion, versions, embeddings, test mapping | done |
-| Milestone 3 — diff → retrieval → checks → LLM → validation → API/CLI | done |
-| Milestone 4 — retrieval evaluation (metrics, datasets, runner) | done — first runs recorded |
-| Milestone 5 — GitHub App webhooks and comment publication | done — tested against a mocked GitHub API |
-| Milestone 6 — test generation and isolated execution | done — disabled, subprocess and Docker tiers; Docker tier exercised |
-| Milestone 7 — reliability/security hardening pass | done — retries, timeouts, dedupe and failure injection; no load/soak run |
-| Milestone 8 — web frontend, docs, screenshots, demo polish | done — Next.js dashboard, 12 screenshots, portfolio bullets |
+| `verified` | A deterministic rule or AST check confirmed the issue at a diff-added line. |
+| `ai_suggested` | A model proposed it and its location and evidence validated. It is still a suggestion. |
+| `needs_manual_verification` | The location is valid, but the claim requires human judgement. |
+| `rejected` | It failed validation, was deduplicated, or was not anchored. Kept for traceability, not shown as a finding. |
 
-Verified on 2026-10-21: **455 backend tests**, **87% statement coverage**, **26
-frontend tests**, ruff and mypy strict clean, the frontend production build, and the
-five-service Compose stack with PostgreSQL 16 + pgvector and Redis. The Docker test
-runner executed a generated candidate (exit 0, 3 tests, 545 ms) with the network
-disabled. Remaining limits are listed at the end of this file; every recorded number
-is tied to a command or stored run id.
+The default provider is a **deterministic mock**, not an LLM. It is labelled `mock` in
+the API, the CLI, the dashboard, and on each review row (`is_mock_provider`). The app is
+fully usable without an API key, and no surface pretends otherwise.
 
-## Quick start (no Docker, no credentials)
+## Features
 
-Requires Python 3.11.
+- **Repository intelligence** — Python AST indexing for modules, classes, functions,
+  methods, signatures, docstrings, imports, call edges and tests. Immutable snapshots
+  keyed by commit SHA; unchanged trees short-circuit; embeddings are content-addressed
+  and reused across versions.
+- **Hybrid retrieval** — BM25, semantic search, reciprocal-rank fusion, and a
+  documented heuristic reranker. Five strategies share one interface so they can be
+  compared on the same corpus.
+- **Review pipeline** — diff validation, changed-symbol mapping, context retrieval,
+  deterministic line/AST rules, optional LLM review, and a validation boundary that
+  enforces paths, added-line anchors, evidence and deduplication.
+- **Test intelligence** — generate candidate regression tests from changed or indexed
+  symbols, then execute them only when an explicit sandbox tier is enabled. Generation
+  never implies execution.
+- **Evaluation harness** — versioned, content-hashed datasets for retrieval, review and
+  test generation; stored runs with per-case results; undefined metrics are `UNKNOWN`,
+  never zero.
+- **GitHub App integration** — HMAC-verified webhooks, delivery deduplication, App
+  authentication, diff fetch, PR review comments and a neutral check run. Publishing is
+  disabled by default.
+- **Dashboard** — Next.js App Router UI for overview, repositories, reviews, findings,
+  tests, evaluation, jobs and settings, with real loading/error/empty states.
+- **Operations** — durable jobs with leases, retries, backoff, cancellation and
+  deduplication; optional Redis wake-ups; structured logs; health/readiness probes;
+  Alembic migrations; Docker Compose; CI.
+
+## At a glance
+
+| | |
+| --- | --- |
+| Backend | Python 3.11, FastAPI, SQLAlchemy 2, Alembic, Pydantic v2 |
+| Frontend | Next.js 16 App Router, React 19, TypeScript strict, Tailwind CSS 4 |
+| Data | SQLite for zero-setup local use; PostgreSQL 16 + pgvector in Compose |
+| Jobs | Durable `jobs` table, worker leases/retries; Redis is an optional wake-up hint |
+| LLM | Deterministic mock by default; any OpenAI-compatible endpoint via config |
+| Embeddings | Deterministic hashing by default; OpenAI-compatible neural embeddings opt-in |
+| Auth | Optional bearer token; GitHub webhooks use HMAC signatures |
+| Tests | 455 backend, 26 frontend; ruff + mypy strict; production frontend build |
+
+## Quick start
+
+**Requirements:** Python 3.11 and `make`. Docker is optional. Node.js 20+ is only needed
+for the dashboard.
 
 ```bash
-make setup          # create .venv and install the locked dependencies
-make init-db        # create a SQLite database under backend/var/
-make demo-repo      # register + index examples/demo-repo (a real fixture project)
-make demo-review    # review examples/demo-repo/pr.diff
+git clone <this-repository> patchlens
+cd patchlens
+
+make setup          # create .venv and install locked Python dependencies
+make init-db        # create the SQLite schema
+make demo-repo      # register and index examples/demo-repo
+make demo-review    # review the bundled pull request
 ```
 
-`make demo-review` prints findings with their rule id, verification status and
-anchor. With the default mock provider the output is deterministic, and every
-finding is derived from the diff and the indexed repository — not generated prose.
+`make demo-review` runs the real pipeline against the real fixture repository and prints
+each finding with its rule id, verification status and diff anchor. With the default
+mock provider the output is deterministic. No API key, database server or Docker daemon
+is required.
 
-Inspect the same data over HTTP:
+Run the API and worker:
 
 ```bash
+# terminal 1
 make run            # http://127.0.0.1:8000  (OpenAPI at /docs)
-curl -s localhost:8000/api/v1/meta | jq
-curl -s localhost:8000/api/v1/repositories | jq
+
+# terminal 2
+make worker         # processes queued reviews/index jobs
 ```
 
-Start a worker to process queued jobs (the API queues reviews by default):
+Then open the dashboard:
 
 ```bash
-make worker
-```
-
-Everything above uses SQLite, a database-backed job queue, the deterministic mock
-LLM and deterministic hashing embeddings. No external services are required.
-
-### Dashboard
-
-The Next.js app talks to the API through a same-origin proxy, so the API token is
-never shipped to the browser. Keep the API running, then:
-
-```bash
-make frontend-install          # npm install in frontend/
+make frontend-install
 PATCHLENS_API_URL=http://127.0.0.1:8000 make frontend-dev
 # http://127.0.0.1:3000
 ```
 
-If `API_AUTH_TOKEN` is set, also export `PATCHLENS_API_TOKEN` for the frontend
-process. The proxy at `/api/backend/*` injects it server-side. `make frontend-lint`,
-`make frontend-test` and `make frontend-build` run the quality gates.
+If `API_AUTH_TOKEN` is set on the backend, also set `PATCHLENS_API_TOKEN` for the
+frontend process. The browser never sees the token: requests go through the same-origin
+proxy at `/api/backend/*`, which injects it on the Next.js server.
 
-### Full stack with Docker
+> `make help` lists every developer entry point.
 
-```bash
-make compose-up               # PostgreSQL 16 + pgvector, Redis, migrate, API, worker
-curl -s localhost:8000/readyz
-docker compose ps             # api healthy; worker up (no HTTP probe)
-```
+## Using PatchLens
 
-The migration container is the only schema owner (`AUTO_CREATE_SCHEMA=false`). The
-API and worker share a non-root image; the worker uses Redis as a wake-up hint and
-still polls the durable `jobs` table. Demo fixtures are mounted read-only, so the
-same commands work inside the API container. The test-runner image is separate:
+### 1. Review a diff
+
+A review needs two things: an **indexed repository** and a **unified diff**.
 
 ```bash
-make test-runner-image        # docker build -t patchlens-test-runner:latest docker/test-runner
+# 1. Register a local checkout (development only; remote cloning is not enabled)
+cd backend
+../.venv/bin/python -m patchlens.cli repo-add \
+  --owner your-org --name your-service \
+  --local-path /absolute/path/to/your-service
+# prints: registered your-org/your-service as repo_...
+
+# 2. Index the checkout at the commit you want to review against
+../.venv/bin/python -m patchlens.cli index \
+  --repository-id repo_... \
+  --commit-sha "$(git -C /absolute/path/to/your-service rev-parse HEAD)"
+
+# 3. Review a diff
+../.venv/bin/python -m patchlens.cli review \
+  --repository-id repo_... \
+  --diff-file /absolute/path/to/change.diff \
+  --commit-sha pr-head
 ```
 
-## What a review actually does
+Create the diff with Git:
+
+```bash
+git -C /absolute/path/to/your-service diff origin/main...HEAD > /absolute/path/to/change.diff
+```
+
+Useful flags:
+
+- `--include-rejected` shows candidates that failed validation, with the rejection
+  reason.
+- `--queue` enqueues the review for the worker instead of running it inline.
+- `--generate-tests` enables candidate generation for this review (overrides
+  `TEST_GENERATION_ENABLED` for the command).
+- `--json` prints the full machine-readable result.
+
+The same workflow is available in the dashboard under **Reviews → New review**. Paste or
+load a diff, choose a repository, and either run synchronously (`wait`) or queue it for
+the worker.
+
+Findings can be inspected individually. `GET /api/v1/findings/{id}/trace` explains the
+rule, the detector, whether the cited line was verified against the diff, the evidence,
+and what PatchLens did **not** check.
+
+### 2. Use the dashboard
+
+Start the API (and worker for queued work), then run the frontend as shown above.
+
+| Page | What you can do |
+| --- | --- |
+| **Overview** | Workspace aggregates, recent reviews, verification and severity distributions. |
+| **Repositories** | Register a local checkout, index it, inspect versions and symbol counts. |
+| **Reviews** | List reviews, open a review, inspect findings and generated tests. |
+| **Reviews → New** | Submit a diff with a repository and commit SHA. |
+| **Findings** | Filter findings, read evidence, leave feedback (`correct`, `incorrect`, etc.). |
+| **Test intelligence** | Browse candidates, see the effective sandbox tier, generate and execute tests. |
+| **Evaluation** | Inspect datasets, runs, aggregates and per-case results. |
+| **Jobs** | Watch queued/running/succeeded/failed jobs and cancel queued work. |
+| **Settings** | Effective configuration with secrets masked; provider and capability status. |
+
+The dashboard shows `NOT RUN` for a dataset with no run and `UNKNOWN` for metrics that
+cannot be computed. A disabled sandbox is shown as disabled, not as a passing test run.
+
+### 3. Generate and run tests
+
+Test generation is disabled by default in the API because a real provider may charge
+per call. Enable it in `.env` (or the environment) and restart the API/worker; the
+CLI's `test-generate` command enables it for that invocation:
+
+```bash
+TEST_GENERATION_ENABLED=true
+```
+
+Generate candidates for indexed symbols:
+
+```bash
+cd backend
+../.venv/bin/python -m patchlens.cli test-generate \
+  --repository-id repo_... \
+  --target app/calculator.py::add
+
+../.venv/bin/python -m patchlens.cli test-candidates
+```
+
+For the bundled fixture, `make demo-tests` generates a candidate for
+`app/calculator.py::add` and prints the effective sandbox status.
+
+Execution has three explicit tiers:
+
+| Tier | How to enable | What happens |
+| --- | --- | --- |
+| `disabled` (default) | nothing | Candidates are stored with `execution_disabled` and a reason. No process starts. |
+| `subprocess` | `TEST_EXECUTION_MODE=subprocess` **and** `ALLOW_LOCAL_TEST_EXECUTION=true` | Runs pytest in a subprocess with a timeout and sanitised environment. **Not a security boundary.** |
+| `docker` | `TEST_EXECUTION_MODE=docker` | Runs the candidate in the isolated runner image with no network, read-only mounts, dropped capabilities, a read-only root, and resource limits. |
+
+Build the runner and execute a candidate:
+
+```bash
+make test-runner-image
+
+cd backend
+TEST_EXECUTION_MODE=docker ../.venv/bin/python -m patchlens.cli test-execute \
+  --candidate-id tst_...
+```
+
+Check the effective tier and its limits at any time:
+
+```bash
+cd backend && ../.venv/bin/python -m patchlens.cli test-status
+# or GET /api/v1/test-execution
+```
+
+A missing Docker daemon or image is recorded as `execution_disabled` or `error` with
+the probe/output. It is never reported as `passed`.
+
+### 4. Run the evaluation suite
+
+The bundled datasets live in `backend/eval/datasets/`:
+
+- `retrieval-demo-v1` — 12 graded queries across five retrieval strategies.
+- `review-demo-v1` — three labelled diffs, including a clean negative control and a
+  semantic bug the deterministic rules cannot see.
+- `test-generation-demo-v1` — three targets for generation validity and optional
+  execution.
+
+With the demo repository registered and indexed:
+
+```bash
+make eval-seed
+make eval-run
+```
+
+Or run one dataset and inspect the stored result:
+
+```bash
+cd backend
+../.venv/bin/python -m patchlens.cli eval-run --dataset retrieval-demo-v1
+../.venv/bin/python -m patchlens.cli eval-report
+```
+
+The dashboard's **Evaluation** page reads the same stored rows. Full methodology,
+dataset hashes, per-case analysis and the recorded numbers are in
+[docs/EVALUATION.md](docs/EVALUATION.md).
+
+### 5. Connect GitHub (optional)
+
+The GitHub integration is implemented and tested against a mocked GitHub API, but no
+live installation is exercised in this repository. To use it:
+
+1. Create a GitHub App with metadata read, pull-requests write and checks write. Do
+   **not** grant contents, workflow, secret or administration permissions.
+2. Set `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET`, and
+   `GITHUB_PUBLISH_ENABLED=true`.
+3. Register and index the repository checkout locally (remote cloning is not
+   implemented), then deliver `pull_request` events to
+   `POST /api/v1/github/webhooks`.
+4. Keep `GITHUB_REQUIRE_VERIFIED_ANCHORS=true` unless you have a specific reason not to.
+
+Publishing creates one PR review with `event: COMMENT` (never an approval or change
+request), inline comments for configured severities, and a neutral check run. Every
+finding records `publish_state` and a reason. Setup, permissions, payload handling and
+failure semantics are in [docs/GITHUB.md](docs/GITHUB.md).
+
+### 6. Run the full stack with Docker
+
+Compose runs PostgreSQL 16 + pgvector, Redis, migrations, the API and a worker:
+
+```bash
+cp .env.example .env          # optional; every value has a default
+make compose-up
+curl -s http://127.0.0.1:8000/readyz
+docker compose ps
+```
+
+The `migrate` service is the only schema owner (`AUTO_CREATE_SCHEMA=false`). The worker
+uses Redis as a wake-up hint but still polls the durable `jobs` table, so losing Redis
+does not lose work. Demo fixtures and evaluation datasets are mounted read-only at
+`/workspace/...`:
+
+```bash
+docker compose exec api python -m patchlens.cli repo-add \
+  --owner demo --name compose-demo --local-path /workspace/examples/demo-repo
+
+docker compose exec api python -m patchlens.cli index \
+  --repository-id repo_... --commit-sha compose-demo-v1
+
+docker compose exec api python -m patchlens.cli review \
+  --repository-id repo_... \
+  --diff-file /workspace/examples/demo-repo/pr.diff \
+  --commit-sha compose-pr
+```
+
+The Compose stack does not include the frontend. Point the Next.js dev server at it:
+
+```bash
+PATCHLENS_API_URL=http://127.0.0.1:8000 make frontend-dev
+```
+
+Stop the stack with `make compose-down`. Use `API_PORT=...` / `POSTGRES_PORT=...` if the
+default ports are already taken.
+
+## CLI reference
+
+Run from the repository root with `make <target>`, or from `backend/` with
+`../.venv/bin/python -m patchlens.cli <command>`. Add `--json` for machine-readable
+output.
+
+| Command | Purpose |
+| --- | --- |
+| `init-db` | Create tables in a development database. Production uses `make migrate`. |
+| `repo-add` | Register a local checkout (disabled when `ENVIRONMENT=production`). |
+| `repo-list` | List repositories with ids and index status. |
+| `index` | Index a checkout inline, or enqueue with `--queue`. |
+| `review` | Review a unified diff inline, or enqueue with `--queue`. |
+| `serve` | Run the FastAPI API (uvicorn). |
+| `worker` | Run the durable job worker. Supports `--once`, `--max-jobs`, `--kinds`. |
+| `jobs` | List recent jobs and their status. |
+| `test-generate` | Generate candidate tests for indexed symbols. |
+| `test-candidates` | List generated candidates, optionally filtered by review/repository/status. |
+| `test-execute` | Execute one candidate in the configured sandbox. |
+| `test-status` | Show the effective sandbox tier, availability and limits. |
+| `eval-seed` | Load dataset JSON into the database. |
+| `eval-run` | Run a dataset and store the result. |
+| `eval-report` | Print a stored run (latest by default). |
+| `config` | Print effective configuration with secrets masked; `--write-env-example` regenerates `.env.example`. |
+
+## API
+
+All data routes are under `/api/v1`. When `API_AUTH_TOKEN` is set, send
+`Authorization: Bearer <token>`. The probes, `/api/v1/meta`, and the HMAC-authenticated
+GitHub webhook remain public so orchestrators, the dashboard and GitHub can reach them.
+
+Interactive documentation is at `http://127.0.0.1:8000/docs` when
+`API_DOCS_ENABLED=true`.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/healthz`, `/readyz` | Liveness and readiness (readiness includes the database). |
+| GET | `/api/v1/meta` | Version, capabilities, provider mode and rule catalogue. |
+| GET | `/api/v1/overview` | Dashboard aggregates (evaluation runs excluded). |
+| GET/POST | `/api/v1/repositories` | List / register a local checkout. |
+| GET/DELETE | `/api/v1/repositories/{id}` | Detail / delete with its data. |
+| POST | `/api/v1/repositories/{id}/index` | Queue an index job. |
+| GET | `/api/v1/repositories/{id}/versions` | Index snapshots. |
+| GET | `/api/v1/repositories/{id}/symbols` | Search symbols in the latest snapshot. |
+| POST | `/api/v1/reviews` | Review a diff; `wait=true` runs in-request. |
+| GET | `/api/v1/reviews`, `/api/v1/reviews/{id}` | List / detail. |
+| GET | `/api/v1/reviews/{id}/findings` | Findings for a review. |
+| GET | `/api/v1/reviews/{id}/test-candidates` | Candidates generated for a review. |
+| GET | `/api/v1/findings`, `/api/v1/findings/{id}` | List / detail. |
+| GET | `/api/v1/findings/{id}/trace` | Why the finding exists and what was not checked. |
+| POST/GET | `/api/v1/findings/{id}/feedback` | Record / list feedback. |
+| GET | `/api/v1/findings/feedback/aggregate` | Aggregate label counts. |
+| GET | `/api/v1/evaluation/datasets`, `/{id}` | Datasets and their cases. |
+| GET/POST | `/api/v1/evaluation/runs` | List runs / run a dataset synchronously. |
+| GET | `/api/v1/evaluation/runs/{id}` | Aggregate and per-case results. |
+| GET | `/api/v1/test-execution` | Effective sandbox tier, availability and limits. |
+| GET | `/api/v1/test-candidates`, `/{id}` | List / inspect candidates. |
+| POST | `/api/v1/repositories/{id}/test-candidates` | Generate candidates for indexed symbols. |
+| POST | `/api/v1/test-candidates/{id}/execute` | Execute in the configured sandbox. |
+| GET | `/api/v1/jobs`, `/api/v1/jobs/{id}` | Durable job state and events. |
+| POST | `/api/v1/jobs/{id}/cancel` | Cancel a queued job. |
+| POST | `/api/v1/github/webhooks` | GitHub webhook receiver (HMAC required). |
+| GET | `/api/v1/github/installations`, `/deliveries` | Observed installations and delivery audit rows. |
+| GET | `/api/v1/settings` | Effective configuration with secrets masked. |
+
+Errors share one shape:
+
+```json
+{"error": {"code": "validation_error", "message": "...", "details": {}}}
+```
+
+## Configuration
+
+Every setting has a working local default. Copy `.env.example` to `.env` to override
+them; the example is generated from the settings model (`make env-example`) and cannot
+drift from the code. The most useful variables:
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `ENVIRONMENT` | `development` | `production` forbids local checkout registration and auto-created schemas. |
+| `DATABASE_URL` | SQLite under `backend/var/` | Use `postgresql+psycopg://...` for PostgreSQL. |
+| `REDIS_URL` | unset | Optional wake-up channel; the durable queue is the `jobs` table. |
+| `AUTO_CREATE_SCHEMA` | `true` | Ignored in production; use Alembic there. |
+| `API_AUTH_TOKEN` | unset | When set, protects every data route. |
+| `LLM_PROVIDER` | `mock` | `mock` or `openai_compatible`. |
+| `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | OpenAI defaults | Used only by the real provider. |
+| `EMBEDDING_PROVIDER` | `hashing` | `hashing` (non-neural) or `openai_compatible`. |
+| `EMBEDDING_DIM`, `EMBEDDING_MODEL` | `512`, `hashing-ngram-v2` | Changing either requires re-indexing. |
+| `RETRIEVAL_STRATEGY` | `hybrid` | `static`, `bm25`, `semantic`, `hybrid`, `hybrid_rerank`. |
+| `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET` | unset | Required together for webhook processing. |
+| `GITHUB_PUBLISH_ENABLED` | `false` | Comments and check runs are created only when explicitly enabled. |
+| `GITHUB_COMMENT_SEVERITIES` | `critical,high` | Severity filter for inline comments. |
+| `GITHUB_MAX_COMMENTS_PER_REVIEW` | `10` | Bounded comment count (1–50). |
+| `TEST_GENERATION_ENABLED` | `false` | Candidate generation is opt-in because a real provider may charge. |
+| `TEST_EXECUTION_MODE` | `disabled` | `disabled`, `subprocess`, or `docker`. |
+| `ALLOW_LOCAL_TEST_EXECUTION` | `false` | Required acknowledgement for subprocess mode. |
+| `TEST_EXECUTION_DOCKER_IMAGE` | `patchlens-test-runner:latest` | Must contain pytest and project runtime dependencies. |
+| `TEST_EXECUTION_TIMEOUT_SECONDS` | `120` | Wall-clock limit for one candidate. |
+| `TEST_EXECUTION_MEMORY_MB`, `TEST_EXECUTION_CPU_SECONDS` | `1024`, `60` | Sandbox resource limits. |
+| `TEST_EXECUTION_NETWORK_ENABLED` | `false` | Keep disabled unless a test genuinely needs network. |
+
+The frontend reads two **server-only** variables, never exposed as `NEXT_PUBLIC_*`:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `PATCHLENS_API_URL` | `http://127.0.0.1:8000` | Backend base URL used by the Next.js proxy. |
+| `PATCHLENS_API_TOKEN` | unset | Backend bearer token, injected server-side. |
+
+Empty optional backend values such as `API_AUTH_TOKEN=` and `REDIS_URL=` are normalised
+to unset, so a blank line cannot create an empty bearer token.
+
+## How a review works
 
 ```mermaid
 flowchart LR
@@ -112,354 +489,145 @@ flowchart LR
     G --> I[publisher<br/>GitHub comments + neutral check]
 ```
 
-Two properties are enforced in code rather than documented as intentions:
+1. **Parse and validate the diff.** Reject unsafe paths, malformed hunks and oversized
+   input. Record exactly which lines were added.
+2. **Map changed symbols.** Reparse the new side of the diff and resolve changed
+   functions/classes against the latest indexed snapshot.
+3. **Retrieve context.** Find callers, tests, docs and related symbols using BM25,
+   embeddings, reciprocal-rank fusion and an optional heuristic rerank.
+4. **Run deterministic checks.** Line and AST rules produce high-confidence findings
+   without a model.
+5. **Ask the model for judgement.** The mock provider is deterministic; a real
+   OpenAI-compatible provider can be configured. The prompt contains retrieved context,
+   not the whole repository.
+6. **Validate before persisting.** A finding must anchor to an added line, an existing
+   path, and evidence from the reviewed content. Rejected candidates keep their reason.
+7. **Publish, if enabled.** Only verified/eligible findings reach GitHub; every publish
+   attempt records `published`, `skipped` or `failed` with a reason.
 
-1. **No invented locations.** Every persisted finding must point at a line the diff
-   added, an existing path inside the repository, and evidence that exists in the
-   reviewed content. Rejected candidates keep the reason, so the trace endpoint can
-   explain why a suggestion was thrown away.
-2. **Degradation is explicit.** If embeddings fail, retrieval falls back to lexical
-   search and the review records a warning. If the LLM fails, deterministic
-   findings are still persisted and the review is marked failed/degraded with the
-   provider error. Neither case silently produces a smaller, unlabelled result.
+## Verification
 
-## Repository intelligence
+Measured on 2026-10-21 on this machine (Python 3.11, SQLite for the test suite;
+PostgreSQL 16 + pgvector and Redis exercised separately in Compose):
 
-- Python is parsed with `ast`: modules, classes, functions, methods, docstrings,
-  signatures, line ranges, imports, call edges and test functions.
-- Each index run creates an immutable `repository_version` keyed by commit SHA (or
-  a content hash for local checkouts). Re-indexing an unchanged tree short-circuits.
-- Embeddings are content-addressed, so unchanged symbols are reused across versions
-  instead of re-embedded.
-- Test files are structurally mapped to source symbols (imports, mirrored package
-  paths, name pairs, call edges) with fixed, documented weights.
-- Vendored/build/cache directories, binary files and secret-looking dotfiles are
-  excluded before parsing.
+| Check | Command | Result |
+| --- | --- | --- |
+| Backend tests | `make test` | **455 passed** |
+| Coverage | `make test-cov` | **87%** statements (8784 statements, 892 missed) |
+| Backend lint | `make lint` | ruff format + ruff check clean (124 files) |
+| Backend types | `make typecheck` | mypy strict clean (89 source files) |
+| Frontend tests | `make frontend-test` | **26 passed** |
+| Frontend gates | `make frontend-lint frontend-build` | lint, typecheck, production build clean |
+| Full CI | `make ci` | backend + frontend gates pass |
+| Compose stack | `make compose-up` | 5 services; `/readyz` 200; migrations at head |
+| Docker test runner | `make test-runner-image` + execute | candidate passed, exit 0, 3 tests, 545 ms, network disabled |
 
-## Retrieval
+Recorded evaluation runs (PostgreSQL + pgvector, mock provider and hashing embeddings):
 
-Five strategies share one interface so they can be compared on the same corpus:
-
-| Strategy | What it does |
+| Run | Result |
 | --- | --- |
-| `static` | exact identifier/path matching (unranked baseline) |
-| `bm25` | BM25 Okapi implemented in-process (`k1=1.5`, `b=0.75`) |
-| `semantic` | cosine similarity over stored vectors |
-| `hybrid` | reciprocal rank fusion of BM25 and semantic (`k=60`) |
-| `hybrid_rerank` | hybrid candidates re-scored by a documented heuristic reranker |
+| Retrieval, 12 queries, 5 strategies | `hybrid_rerank`: nDCG@10 **0.833**, MRR@10 **0.938**, Recall@5 **0.799**, 0 failures |
+| Review, 3 diffs | precision **1.000**, recall **0.929**, F1 **0.963**, must-find recall **0.857** |
+| Test generation, 3 targets | validity **3/3**; execution **UNKNOWN** (sandbox disabled) |
 
-The reranker is a weighted heuristic, **not** a trained cross-encoder; the code and
-the API say so. On SQLite, semantic search is an in-process scan (`portable_scan`);
-on PostgreSQL it uses pgvector's cosine-distance operator (`<=>`) inside the
-database. The column is still unconstrained (`vector` without a dimension) and there
-is no HNSW index yet, so the Postgres path is an exact scan, not an ANN query. This
-path was executed against PostgreSQL 16 + pgvector on 2026-10-21; `/api/v1/settings`
-reported `semantic_backend=pgvector`.
+Run ids, dataset hashes and per-case analysis are in
+[docs/EVALUATION.md](docs/EVALUATION.md); the raw payloads are checked in under
+`docs/eval/`. These numbers measure the deterministic layer, not LLM review quality.
 
-Embeddings have two providers: `hashing` (deterministic feature hashing, explicitly
-non-neural) and `openai_compatible` (a real neural embedding endpoint, opt-in with
-credentials). Each stored embedding records which one produced it, so a mock/hashing
-index can never masquerade as a neural one.
+## Troubleshooting
 
-## Evaluation
-
-`backend/eval/datasets/` holds three versioned, content-hashed datasets: 12 graded
-retrieval queries, 3 labelled diffs (the demo PR, a clean negative control, and an
-off-by-one logic bug the rules cannot see), and 3 test-generation targets.
-`make eval-seed && make eval-run` records the runs; the API serves the same stored
-rows.
-
-Recorded runs on the bundled demo repo. The current runs use PostgreSQL 16 +
-pgvector (2026-10-21); the earlier SQLite runs are kept for comparison in
-[docs/EVALUATION.md](docs/EVALUATION.md).
-
-| Run | Environment | Result |
-| --- | --- | --- |
-| retrieval — 12 queries, five strategies | PostgreSQL + pgvector | best nDCG@10 `hybrid_rerank` 0.833; MRR@10 0.938; Recall@5 0.799; 0 failures |
-| review — 3 diffs, mock provider | PostgreSQL + pgvector | precision 1.000, recall 0.929 (13 tp, 0 fp, 1 fn); must-find recall 0.857 |
-| test generation — 3 targets, mock provider | PostgreSQL + pgvector | validity 3/3 (1.000); execution `UNKNOWN` because the sandbox was disabled |
-
-Run ids: `evr_1c874fcd28be4d27adb12542972fb79a`,
-`evr_a473310248634f82b8585d100bf75434` and
-`evr_35a3d64206234b39b3d50c03834bf1ad`. The full serializer payloads are checked in
-under `docs/eval/2026-10-21-*.json`.
-
-The single review miss is reported rather than tuned away: an off-by-one in `mean()`
-is a semantic defect no deterministic rule detects. Cost is `UNKNOWN` (no priced
-provider was configured). These numbers measure the deterministic layer with a
-labelled rule-based provider and a non-neural embedding signal — not an LLM. The
-retrieval dataset labels refer to `demo-local` while the Compose corpus was indexed
-as `compose-demo-v1`; the run records that mismatch as a limitation. Full tables,
-dataset hashes, per-case analysis and reproduction commands are in
-[docs/EVALUATION.md](docs/EVALUATION.md). Undefined metrics render as `UNKNOWN`; a
-dataset without a run is `NOT RUN`.
-
-## Test intelligence
-
-PatchLens can generate candidate regression tests for changed or indexed symbols
-and execute them only when an execution tier is explicitly enabled. Candidates store
-their target, source, suggested path, provider/model and a status; generation alone
-never sets `executed_at` or a pass result.
-
-| Tier | Behaviour |
+| Symptom | Fix |
 | --- | --- |
-| `disabled` (default) | Candidates are stored as `execution_disabled` with the reason. No process is started. |
-| `subprocess` | Requires `TEST_EXECUTION_MODE=subprocess` **and** `ALLOW_LOCAL_TEST_EXECUTION=true`. Timeout, sanitised environment and best-effort POSIX limits; **not a security boundary**. |
-| `docker` | `TEST_EXECUTION_MODE=docker` with `patchlens-test-runner:latest`. Network off by default, repository and test mounts read-only, `--cap-drop ALL`, `no-new-privileges`, read-only root, tmpfs, memory/CPU/PID limits, timeout and output caps. |
+| `ModuleNotFoundError: patchlens` | Run commands from `backend/`, or use the `make` targets. Run `make setup` if the virtualenv is missing. |
+| `no such table: repositories` | Run `make init-db` (development) or `make migrate` (production/Postgres). |
+| Dashboard shows a proxy error / 502 | Start the API and check `PATCHLENS_API_URL`; the frontend proxies to it server-side. |
+| Review stays `queued` | Start `make worker`. Reviews run asynchronously unless created with `wait=true`. |
+| `409` from test generation | Set `TEST_GENERATION_ENABLED=true` and restart the API/worker. |
+| Test candidate says `execution_disabled` | Enable a tier with `TEST_EXECUTION_MODE` (and `ALLOW_LOCAL_TEST_EXECUTION=true` for subprocess). Check `test-status`. |
+| Port 8000 or 3000 already in use | `make run PORT=8001`, `PATCHLENS_API_URL=http://127.0.0.1:8001 make frontend-dev`, or `API_PORT=8001 make compose-up`. |
+| Compose migration fails on an old volume | Run `docker compose down -v` to recreate the database volume, then `make compose-up`. This deletes local Compose data. |
+| GitHub webhook returns `502` | Set all three of `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET`; see [docs/GITHUB.md](docs/GITHUB.md). |
 
-Build the runner once:
+## Limitations
 
-```bash
-make test-runner-image         # docker build -t patchlens-test-runner:latest docker/test-runner
-TEST_EXECUTION_MODE=docker make demo-tests
-```
+PatchLens is a portfolio project, not a production service. The important limits are:
 
-The Docker tier was exercised on 2026-10-21: candidate
-`tst_437cecac3e1c40c6a7a383fbbb003025` finished `passed` with exit 0, 3 collected
-tests and 545 ms, with `sandbox_mode=docker` and the network disabled. If the Docker
-CLI or daemon is unavailable, the candidate is marked `execution_disabled` with the
-probe error; a missing image or container failure is recorded as `error` with the
-output — never `passed`. The evaluation harness reports execution metrics as
-`UNKNOWN` unless a sandbox is enabled, and its bundled mock generator produces an
-importability smoke suite rather than a behavioural test.
+- **No live GitHub run.** Webhooks, App auth, diff fetch, publication and the check run
+  are covered by integration tests against `httpx.MockTransport` with a generated RSA
+  key. No real installation has delivered an event here, and GitHub Enterprise is
+  untested. Remote cloning is not implemented: webhook reviews require a registered,
+  indexed local checkout.
+- **Publishing is at-least-once.** A crash after GitHub accepts a review but before the
+  database commit can duplicate it; GitHub has no idempotency key for this flow.
+- **pgvector is executed but not ANN-indexed.** The vector column is unconstrained and
+  there is no HNSW index, so semantic search is an exact cosine scan inside PostgreSQL.
+  A fixed-dimension column plus HNSW is a planned migration.
+- **The Docker sandbox is defense in depth, not a proof.** It relies on the host Docker
+  daemon and the default seccomp profile. The `subprocess` tier is explicitly not a
+  security boundary.
+- **No load or soak test.** Recorded latencies are warm, single-process measurements,
+  not capacity evidence.
+- **Evaluation is small and mock-based.** Labels are author-written over a 21-symbol
+  fixture and three diffs. The retrieval labels refer to `demo-local` while the Compose
+  corpus is `compose-demo-v1`; the run records that mismatch. No independent label
+  review has been performed.
+- **The mock provider is not AI, and hashing embeddings are not semantic.** Both are
+  deterministic development defaults, labelled as such everywhere. The neural provider
+  exists but was not run here.
+- **The reranker is a fixed heuristic**, not a trained cross-encoder.
 
-## GitHub integration
+## Project layout
 
-GitHub App webhooks are verified against the raw body (`X-Hub-Signature-256`) and
-deduplicated by `X-GitHub-Delivery`. `pull_request` `opened`/`reopened`/`synchronize`
-events resolve a registered local checkout, queue one review per head SHA, fetch the
-diff with an installation token, run the normal review pipeline, and publish:
-
-- one pull-request **review with `event: COMMENT`** — never an approval or a change
-  request;
-- inline comments only for `verified` and `needs_manual_verification` findings, only
-  configured severities, verified added-line anchors and safe paths, capped by
-  `GITHUB_MAX_COMMENTS_PER_REVIEW`;
-- a **neutral** check run whose annotations mirror the published findings.
-
-Every finding records `publish_state` (`published` / `skipped` / `failed`) with a
-reason, and comment text excludes raw code excerpts and passes secret redaction.
-The App asks for metadata read, pull-requests write and checks write — no contents,
-code write, workflows, secrets or administration. Setup, permissions, failure
-semantics and the untested paths are in [docs/GITHUB.md](docs/GITHUB.md).
-
-The local demo does not need a GitHub App: `make demo-review` exercises the same
-pipeline with publication recorded as `skipped`. No live GitHub App installation has
-been exercised here; the integration tests drive the real webhook route, queue,
-worker and publisher against an `httpx.MockTransport` GitHub API and a generated RSA
-key.
-
-## Findings and feedback
-
-Each finding carries: category, severity, rule id, detector (`static`, `static_ast`,
-`llm`), verification status, confidence basis, path, line range, evidence and a
-rejection reason when it was discarded. Feedback labels (`correct`, `incorrect`,
-`irrelevant`, `duplicate`, `needs_investigation`) are stored per finding and
-aggregated; nothing is retrained from them automatically.
-
-`GET /api/v1/findings/{id}/trace` returns the full story: the rule definition, the
-detector, whether the cited line was verified against the diff, the evidence, and a
-`not_executed` list naming what PatchLens did **not** verify (for example "no test
-or execution was performed for this finding; verification is static").
-
-## API
-
-All routes are under `/api/v1` except the probes. `Authorization: Bearer <token>` is
-required when `API_AUTH_TOKEN` is set; `/healthz`, `/readyz`, `/api/v1/meta` and the
-HMAC-authenticated `POST /api/v1/github/webhooks` remain public so an orchestrator
-can probe the process, a UI can discover that a token is required, and GitHub can
-deliver events without a bearer token.
-
-| Method | Path | Purpose |
-| --- | --- | --- |
-| GET | `/healthz`, `/readyz` | liveness, readiness (DB included) |
-| GET | `/api/v1/meta` | version, capabilities, provider mode, rule catalogue |
-| GET | `/api/v1/overview` | dashboard aggregates (evaluation runs excluded) |
-| GET/POST | `/api/v1/repositories` | list / register a local checkout (development only) |
-| GET/DELETE | `/api/v1/repositories/{id}` | detail / delete with its data |
-| POST | `/api/v1/repositories/{id}/index` | queue an index job |
-| GET | `/api/v1/repositories/{id}/versions` | index snapshots |
-| GET | `/api/v1/repositories/{id}/symbols` | search symbols in the latest snapshot (409 without one) |
-| POST | `/api/v1/reviews` | review a diff (`wait=true` runs in-request) |
-| GET | `/api/v1/reviews`, `/api/v1/reviews/{id}` | list / detail |
-| GET | `/api/v1/reviews/{id}/findings` | findings for a review |
-| GET | `/api/v1/reviews/{id}/test-candidates` | candidate tests generated for a review |
-| GET | `/api/v1/findings/{id}` | finding detail |
-| GET | `/api/v1/findings/{id}/trace` | why the finding exists, and what was not checked |
-| POST/GET | `/api/v1/findings/{id}/feedback` | record / list feedback |
-| GET | `/api/v1/findings/feedback/aggregate` | aggregate label counts |
-| GET | `/api/v1/evaluation/datasets`, `/api/v1/evaluation/datasets/{id}` | labelled datasets and their cases |
-| GET/POST | `/api/v1/evaluation/runs` | list runs / run a dataset synchronously |
-| GET | `/api/v1/evaluation/runs/{id}` | aggregate and per-case results |
-| GET | `/api/v1/test-execution` | effective sandbox tier, availability and limits |
-| GET | `/api/v1/test-candidates`, `/api/v1/test-candidates/{id}` | list / inspect generated candidates |
-| POST | `/api/v1/repositories/{id}/test-candidates` | generate candidates for indexed symbols |
-| POST | `/api/v1/test-candidates/{id}/execute` | execute in the configured sandbox (202) |
-| GET | `/api/v1/jobs`, `/api/v1/jobs/{id}` | durable job state and events |
-| POST | `/api/v1/jobs/{id}/cancel` | cancel a queued job |
-| POST | `/api/v1/github/webhooks` | GitHub webhook receiver (HMAC signature required) |
-| GET | `/api/v1/github/installations` | installations observed from webhook events |
-| GET | `/api/v1/github/deliveries` | webhook audit rows, optionally filtered by `status` |
-| GET | `/api/v1/settings` | effective configuration, secrets masked |
-
-Errors use one shape: `{"error": {"code", "message", "details"}}`, with codes such
-as `validation_error`, `not_found`, `unauthorized`, `payload_too_large`,
-`provider_error`.
-
-## Configuration
-
-Every setting has a working default. Copy `.env.example` to `.env` to change them;
-the example file is generated from the settings model (`make env-example`, or
-`python -m patchlens.cli config --write-env-example`).
-
-| Variable | Default | Notes |
-| --- | --- | --- |
-| `ENVIRONMENT` | `development` | `production` forbids local checkout registration |
-| `DATABASE_URL` | SQLite under `backend/var/` | `postgresql+psycopg://...` for Postgres |
-| `REDIS_URL` | unset | optional wake-up channel; jobs live in the DB |
-| `AUTO_CREATE_SCHEMA` | `true` | ignored in production; use Alembic there |
-| `API_AUTH_TOKEN` | unset | when set, protects every data route |
-| `LLM_PROVIDER` | `mock` | `mock` or `openai_compatible` |
-| `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | OpenAI defaults | used only by the real provider |
-| `EMBEDDING_PROVIDER` | `hashing` | `hashing` (non-neural) or `openai_compatible` |
-| `EMBEDDING_DIM`, `EMBEDDING_MODEL` | `512`, `hashing-ngram-v2` | changing these requires re-indexing |
-| `RETRIEVAL_STRATEGY` | `hybrid` | one of the five strategies above |
-| `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET` | unset | GitHub App credentials; without all three the webhook returns 502 |
-| `GITHUB_PUBLISH_ENABLED` | `false` | comments/check run are created only when explicitly enabled |
-| `GITHUB_COMMENT_SEVERITIES` | `critical,high` | severity filter for inline comments |
-| `GITHUB_MAX_COMMENTS_PER_REVIEW` | `10` | bounded comment count (1–50) |
-| `GITHUB_REQUIRE_VERIFIED_ANCHORS` | `true` | publish only added-line-verified anchors |
-| `GITHUB_API_BASE_URL` | `https://api.github.com` | configurable for GitHub Enterprise; only the mock base URL is tested |
-| `TEST_GENERATION_ENABLED` | `false` | enables candidate generation (the mock is free; a real provider may charge) |
-| `TEST_EXECUTION_MODE` | `disabled` | `disabled`, `subprocess` or `docker` |
-| `ALLOW_LOCAL_TEST_EXECUTION` | `false` | required acknowledgement for subprocess mode; not a sandbox |
-| `TEST_EXECUTION_DOCKER_IMAGE` | `patchlens-test-runner:latest` | must contain pytest and the project's runtime dependencies |
-| `TEST_EXECUTION_TIMEOUT_SECONDS` | `120` | wall-clock limit for one candidate run |
-| `TEST_EXECUTION_MEMORY_MB`, `TEST_EXECUTION_CPU_SECONDS` | `1024`, `60` | sandbox resource limits |
-| `TEST_EXECUTION_NETWORK_ENABLED` | `false` | keep `false` unless a test genuinely needs network |
-
-The frontend uses two server-only variables, read by the Next.js proxy rather than
-the backend: `PATCHLENS_API_URL` (default `http://127.0.0.1:8000`) and
-`PATCHLENS_API_TOKEN` (default unset). They are never exposed as `NEXT_PUBLIC_*`.
-Empty optional backend values such as `API_AUTH_TOKEN=` and `REDIS_URL=` are
-normalised to unset, so a blank line in `.env` cannot create an empty bearer token.
-
-The provider split is deliberate: the app runs, indexes and reviews without paid
-credentials, and `is_mock_provider` is stored on each review so no surface can
-present mock output as a real model's work. Set `LLM_PROVIDER=openai_compatible`
-plus an API key and model to use a real model.
-
-## Quality gates
-
-```bash
-make lint             # ruff format --check + ruff check (backend, tests, migrations)
-make typecheck        # mypy (strict) over the backend package
-make test             # pytest
-make test-cov         # pytest with a coverage report
-make frontend-lint    # next lint + tsc --noEmit
-make frontend-test    # vitest
-make frontend-build   # next build
-make ci               # backend + frontend gates
-```
-
-Current measured state on this machine (Python 3.11; backend tests on SQLite):
-**455 backend tests pass**, **87% statement coverage** (8784 statements, 892
-missed), `ruff` and `mypy --strict` clean; **26 frontend tests pass**, and lint,
-typecheck and the production build succeed. The Compose stack was exercised
-separately against PostgreSQL 16 + pgvector and Redis. Run the commands yourself;
-the numbers in this file are updated only after the commands have been run.
-
-## Repository layout
-
-```
+```text
 backend/
   patchlens/
     api/            FastAPI app, routes, dependencies, error mapping
     core/           settings, enums, errors, security, logging
-    db/             SQLAlchemy models, session, custom types, migrations helpers
-    jobs/           durable queue, worker loop, job handlers
+    db/             SQLAlchemy models, sessions, custom types
+    jobs/           durable queue, worker loop, Redis wake-ups, handlers
     services/
       ingestion/    discovery, Python AST parser, indexer
       retrieval/    BM25, semantic, fusion, service, strategies
       review/       diff parser, symbol mapping, checks, prompting, validation, pipeline
       llm/          provider interface, mock, OpenAI-compatible client
-      embedding/    hashing and OpenAI-compatible embedding providers
+      embedding/    hashing and OpenAI-compatible providers
       testing/      candidate generation, sandbox resolution, execution
       github/       GitHub client, webhook ingestion, publisher
     cli.py          operational CLI
   migrations/       Alembic revisions
-  tests/            unit, integration, security
-frontend/           Next.js App Router dashboard (TypeScript strict, Tailwind)
+  eval/datasets/    versioned evaluation datasets
+  tests/            unit, integration and security tests
+frontend/           Next.js App Router dashboard
 docker/test-runner/ minimal pytest image for the Docker execution tier
-examples/demo-repo/ a small fixture service and a real diff used by `make demo-*`
-docs/               architecture, security, evaluation, GitHub integration,
-                    screenshots and stored evaluation payloads
+examples/demo-repo/ fixture service and pull request used by the demo
+docs/               architecture, security, evaluation, GitHub, screenshots, run payloads
 ```
+
+## Documentation
+
+| Document | Contents |
+| --- | --- |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Components, data flow, schema, retrieval and job design. |
+| [docs/SECURITY.md](docs/SECURITY.md) | Threat model, auth, path/payload validation, prompt injection, sandboxing. |
+| [docs/EVALUATION.md](docs/EVALUATION.md) | Dataset provenance, metrics, recorded runs, per-case analysis. |
+| [docs/GITHUB.md](docs/GITHUB.md) | GitHub App setup, permissions, publication and failure semantics. |
+| [docs/RESUME.md](docs/RESUME.md) | Portfolio bullets with measured numbers. |
+| [docs/screenshots/](docs/screenshots/) | Twelve dashboard screenshots. |
+| [docs/eval/](docs/eval/) | Stored evaluation run payloads. |
 
 ## Screenshots
 
-Captured from the running dashboard against the local SQLite demo workspace (mock
-provider; the evaluation page shows stored runs).
-
-![Overview](docs/screenshots/overview.png)
-
-| View | File |
+| View | Files |
 | --- | --- |
 | Overview | [overview.png](docs/screenshots/overview.png) |
-| Repositories / detail | [repositories.png](docs/screenshots/repositories.png), [repository-detail.png](docs/screenshots/repository-detail.png) |
-| Reviews / detail | [reviews.png](docs/screenshots/reviews.png), [review-detail.png](docs/screenshots/review-detail.png) |
-| Findings / detail | [findings.png](docs/screenshots/findings.png), [finding-detail.png](docs/screenshots/finding-detail.png) |
-| Test intelligence / detail | [tests.png](docs/screenshots/tests.png), [test-detail.png](docs/screenshots/test-detail.png) |
-| Evaluation / run | [evaluation.png](docs/screenshots/evaluation.png), [evaluation-run.png](docs/screenshots/evaluation-run.png) |
+| Repositories | [repositories.png](docs/screenshots/repositories.png), [repository-detail.png](docs/screenshots/repository-detail.png) |
+| Reviews | [reviews.png](docs/screenshots/reviews.png), [review-detail.png](docs/screenshots/review-detail.png) |
+| Findings | [findings.png](docs/screenshots/findings.png), [finding-detail.png](docs/screenshots/finding-detail.png) |
+| Test intelligence | [tests.png](docs/screenshots/tests.png), [test-detail.png](docs/screenshots/test-detail.png) |
+| Evaluation | [evaluation.png](docs/screenshots/evaluation.png), [evaluation-run.png](docs/screenshots/evaluation-run.png) |
 | Settings | [settings.png](docs/screenshots/settings.png) |
 
-Portfolio-ready bullets with measured numbers are in
-[docs/RESUME.md](docs/RESUME.md).
+---
 
-## Honest limitations
-
-- **No live GitHub run.** The webhook receiver, App JWT/installation-token flow,
-  diff fetch, comment publication and neutral check run are implemented and covered
-  by integration tests against a mocked GitHub API (`httpx.MockTransport`) with a
-  generated RSA key. No real GitHub App installation has delivered an event here, and
-  GitHub Enterprise is untested. Publication is off unless
-  `GITHUB_PUBLISH_ENABLED=true`; without a publisher the review records
-  `publish_state=skipped` with the reason. A crash after GitHub accepts a review but
-  before the DB commit can duplicate the review (GitHub has no idempotency key);
-  this is documented in [docs/GITHUB.md](docs/GITHUB.md).
-- **No remote cloning.** Webhook review requires a registered local checkout and a
-  successful index; unregistered/uncheckout repositories are recorded as failed
-  deliveries rather than cloned.
-- **PostgreSQL + pgvector is executed, but not ANN-indexed.** The Compose stack ran
-  the migrations and retrieval against PostgreSQL 16 + pgvector. The vector column is
-  unconstrained and there is no HNSW index, so semantic search is an exact cosine
-  scan inside PostgreSQL. The fixed-dimension column + HNSW index is a planned
-  migration.
-- **The Docker sandbox is defense in depth, not a proof.** It uses a minimal pytest
-  image, no network by default, read-only repository/test mounts, dropped
-  capabilities, a read-only root filesystem, a tmpfs, memory/CPU/PID limits, a
-  timeout and output caps. It still relies on the host Docker daemon and the default
-  seccomp profile; do not run untrusted code on a host you do not trust. The
-  `subprocess` tier is explicitly not a security boundary.
-- **No load or soak test.** Recorded latencies are warm, single-process
-  measurements, not capacity evidence. No throughput, concurrency or long-running
-  stability claim is made.
-- **Evaluation is deliberately small and mock-based.** The recorded review and test
-  generation runs use the deterministic mock provider; retrieval uses non-neural
-  hashing embeddings; labels are author-written over a 21-symbol fixture and three
-  diffs. The retrieval dataset labels refer to `demo-local` while the Compose corpus
-  is `compose-demo-v1`; the run records that mismatch. The numbers are real,
-  reproducible and published with their limits (run ids and dataset hashes in
-  `docs/EVALUATION.md`) — they are not evidence of LLM review quality.
-- **No independent label review.** The evaluation labels were written by the author
-  and have not been adjudicated by a second reviewer.
-- **The mock provider is not AI.** It is a deterministic rule-based responder used
-  to exercise the pipeline without credentials. Its output is labelled `mock`
-  everywhere, including `reviews.is_mock_provider` and the API metadata.
-- **Hashing embeddings are not semantic.** They are a deterministic lexical-ish
-  signal for local development; the neural provider exists but has not been run here.
-- **The heuristic reranker is not trained.** It applies fixed weights and is
-  described as such in code and in `/api/v1/meta`.
-- **Portfolio context.** This is a portfolio project, not a production service. The
-  dashboard screenshots were captured against the local SQLite demo with the mock
-  provider.
+Built as a portfolio project to demonstrate repository-aware retrieval, evidence-bound
+LLM output, durable background jobs, sandboxed test execution and honest evaluation.
